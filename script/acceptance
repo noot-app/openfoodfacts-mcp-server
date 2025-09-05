@@ -15,7 +15,7 @@ if ! curl -s -f -H "Authorization: Bearer your-secret-token" http://localhost:80
 fi
 
 # Build and run the simple MCP API key authentication test
-go run ./test/acceptance/simple_mcp_auth.go
+go run ./test/acceptance/acceptance.go
 
 echo
 echo -e "${GREEN}🎯 Acceptance tests completed successfully!${OFF}"
