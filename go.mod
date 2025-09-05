@@ -6,7 +6,7 @@ require (
 	github.com/marcboeker/go-duckdb/v2 v2.3.6
 	github.com/modelcontextprotocol/go-sdk v0.3.1
 	github.com/spf13/cobra v1.10.1
-	github.com/stretchr/testify v1.11.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
