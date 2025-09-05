@@ -252,7 +252,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Handle name/brand search
-		products, err = s.queryEngine.SearchProducts(ctx, req.Name, req.Brand, req.Limit)
+		products, err = s.queryEngine.SearchProductsByBrandAndName(ctx, req.Name, req.Brand, req.Limit)
 		if err != nil {
 			s.log.Error("Product search failed", "error", err, "name", req.Name, "brand", req.Brand)
 			s.sendErrorResponse(w, err, "internal error", http.StatusInternalServerError)

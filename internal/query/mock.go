@@ -49,8 +49,8 @@ func NewMockEngine(logger *slog.Logger) *MockEngine {
 	}
 }
 
-// SearchProducts searches for products by name and brand
-func (m *MockEngine) SearchProducts(ctx context.Context, name, brand string, limit int) ([]Product, error) {
+// SearchProductsByBrandAndName searches for products by name and brand
+func (m *MockEngine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]Product, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

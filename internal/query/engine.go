@@ -40,10 +40,10 @@ func (e *Engine) Close() error {
 	return e.db.Close()
 }
 
-// SearchProducts searches for products by name and brand
-func (e *Engine) SearchProducts(ctx context.Context, name, brand string, limit int) ([]Product, error) {
+// SearchProductsByBrandAndName searches for products by name and brand
+func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]Product, error) {
 	totalStart := time.Now()
-	e.log.Info("SearchProducts starting", "name", name, "brand", brand, "limit", limit, "parquet_path", e.parquetPath)
+	e.log.Info("SearchProductsByBrandAndName starting", "name", name, "brand", brand, "limit", limit, "parquet_path", e.parquetPath)
 
 	// Build optimized query with pre-computed text extraction
 	// Use simpler approach to avoid nested operations in WHERE clause
@@ -219,7 +219,7 @@ func (e *Engine) SearchProducts(ctx context.Context, name, brand string, limit i
 	e.log.Info("Row scanning completed", "rows_scanned", rowCount, "scan_duration", time.Since(scanStart))
 
 	totalDuration := time.Since(totalStart)
-	e.log.Info("SearchProducts completed", "count", len(results), "total_duration", totalDuration)
+	e.log.Info("SearchProductsByBrandAndName completed", "count", len(results), "total_duration", totalDuration)
 	return results, nil
 }
 

@@ -8,7 +8,7 @@ import (
 
 // QueryEngine defines the interface for querying the product database
 type QueryEngine interface {
-	SearchProducts(ctx context.Context, name, brand string, limit int) ([]Product, error)
+	SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]Product, error)
 	SearchByBarcode(ctx context.Context, barcode string) (*Product, error)
 	TestConnection(ctx context.Context) error
 	Close() error

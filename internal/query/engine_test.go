@@ -18,7 +18,7 @@ func TestNewMockEngine(t *testing.T) {
 	defer engine.Close()
 }
 
-func TestMockEngine_SearchProducts(t *testing.T) {
+func TestMockEngine_SearchProductsByBrandAndName(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	engine := NewMockEngine(logger)
 	defer engine.Close()
@@ -26,25 +26,25 @@ func TestMockEngine_SearchProducts(t *testing.T) {
 	ctx := context.Background()
 
 	// Test search by name
-	products, err := engine.SearchProducts(ctx, "Nutella", "", 10)
+	products, err := engine.SearchProductsByBrandAndName(ctx, "Nutella", "", 10)
 	assert.NoError(t, err)
 	assert.Len(t, products, 1)
 	assert.Equal(t, "Nutella", products[0].ProductName)
 	assert.Equal(t, "3017620422003", products[0].Code)
 
 	// Test search by brand
-	products, err = engine.SearchProducts(ctx, "", "Ferrero", 10)
+	products, err = engine.SearchProductsByBrandAndName(ctx, "", "Ferrero", 10)
 	assert.NoError(t, err)
 	assert.Len(t, products, 2) // Both products are Ferrero
 
 	// Test combined search
-	products, err = engine.SearchProducts(ctx, "chocolate", "Ferrero", 10)
+	products, err = engine.SearchProductsByBrandAndName(ctx, "chocolate", "Ferrero", 10)
 	assert.NoError(t, err)
 	assert.Len(t, products, 1)
 	assert.Equal(t, "Test Chocolate", products[0].ProductName)
 
 	// Test limit
-	products, err = engine.SearchProducts(ctx, "", "Ferrero", 1)
+	products, err = engine.SearchProductsByBrandAndName(ctx, "", "Ferrero", 1)
 	assert.NoError(t, err)
 	assert.Len(t, products, 1)
 }
@@ -114,7 +114,7 @@ func TestProduct_JSONSerialization(t *testing.T) {
 
 // Integration test would require a real parquet file
 // This is a placeholder for when we have test data
-func TestEngine_SearchProducts_Integration(t *testing.T) {
+func TestEngine_SearchProductsByBrandAndName_Integration(t *testing.T) {
 	t.Skip("Integration test - requires actual parquet file")
 
 	// This test would:

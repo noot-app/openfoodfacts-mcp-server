@@ -301,7 +301,7 @@ type mockQueryEngine struct {
 	err      error
 }
 
-func (m *mockQueryEngine) SearchProducts(ctx context.Context, name, brand string, limit int) ([]query.Product, error) {
+func (m *mockQueryEngine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]query.Product, error) {
 	return m.products, m.err
 }
 
