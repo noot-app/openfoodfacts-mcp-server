@@ -125,6 +125,13 @@ func (s *Server) initialize(ctx context.Context) error {
 	start := time.Now()
 	s.log.Info("Initializing server...")
 
+	// Log development mode warning
+	if s.config.IsDevelopment() {
+		s.log.Warn("🚧 DEVELOPMENT MODE ENABLED 🚧",
+			"environment", s.config.Environment,
+			"note", "Detailed error messages will be returned to clients")
+	}
+
 	// Ensure dataset is available
 	if err := s.dataManager.EnsureDataset(ctx); err != nil {
 		return fmt.Errorf("failed to ensure dataset: %w", err)
@@ -237,7 +244,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		product, err := s.queryEngine.SearchByBarcode(ctx, req.Barcode)
 		if err != nil {
 			s.log.Error("Barcode search failed", "error", err, "barcode", req.Barcode)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			s.sendErrorResponse(w, err, "internal error", http.StatusInternalServerError)
 			return
 		}
 		if product != nil {
@@ -248,7 +255,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		products, err = s.queryEngine.SearchProducts(ctx, req.Name, req.Brand, req.Limit)
 		if err != nil {
 			s.log.Error("Product search failed", "error", err, "name", req.Name, "brand", req.Brand)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			s.sendErrorResponse(w, err, "internal error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -278,4 +285,15 @@ func (s *Server) isAuthorized(r *http.Request) bool {
 	}
 
 	return token == s.config.AuthToken
+}
+
+// sendErrorResponse sends an error response, with detailed error in development mode
+func (s *Server) sendErrorResponse(w http.ResponseWriter, err error, message string, statusCode int) {
+	if s.config.IsDevelopment() {
+		// In development mode, return detailed error
+		http.Error(w, fmt.Sprintf("%s: %v", message, err), statusCode)
+	} else {
+		// In production mode, return generic message
+		http.Error(w, message, statusCode)
+	}
 }

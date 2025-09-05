@@ -45,21 +45,38 @@ func (e *Engine) SearchProducts(ctx context.Context, name, brand string, limit i
 	start := time.Now()
 	e.log.Debug("SearchProducts starting", "name", name, "brand", brand, "limit", limit)
 
-	// Build the query with proper parameterization
+	// Build the query with proper handling of complex types
+	// Extract the English text from product_name struct array and convert brands to string
 	query := `
-		SELECT code, product_name, brands, nutriments, link, ingredients
+		SELECT 
+			code, 
+			COALESCE(
+				(SELECT list_extract(list_filter(product_name, x -> x.lang = 'en'), 1).text),
+				CAST(product_name AS VARCHAR)
+			) as product_name_text,
+			CAST(brands AS VARCHAR) as brands_text,
+			CAST(nutriments AS VARCHAR) as nutriments_json,
+			link,
+			CAST(ingredients AS VARCHAR) as ingredients_json
 		FROM read_parquet(?)
 		WHERE 1=1`
 
 	args := []interface{}{e.parquetPath}
 
 	if name != "" {
-		query += ` AND product_name ILIKE ?`
-		args = append(args, fmt.Sprintf("%%%s%%", name))
+		query += ` AND (
+			COALESCE(
+				(SELECT list_extract(list_filter(product_name, x -> x.lang = 'en'), 1).text),
+				CAST(product_name AS VARCHAR)
+			) ILIKE ? OR
+			CAST(product_name AS VARCHAR) ILIKE ?
+		)`
+		searchPattern := fmt.Sprintf("%%%s%%", name)
+		args = append(args, searchPattern, searchPattern)
 	}
 
 	if brand != "" {
-		query += ` AND brands ILIKE ?`
+		query += ` AND CAST(brands AS VARCHAR) ILIKE ?`
 		args = append(args, fmt.Sprintf("%%%s%%", brand))
 	}
 
@@ -144,7 +161,16 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 	e.log.Debug("SearchByBarcode starting", "barcode", barcode)
 
 	query := `
-		SELECT code, product_name, brands, nutriments, link, ingredients
+		SELECT 
+			code, 
+			COALESCE(
+				(SELECT list_extract(list_filter(product_name, x -> x.lang = 'en'), 1).text),
+				CAST(product_name AS VARCHAR)
+			) as product_name_text,
+			CAST(brands AS VARCHAR) as brands_text,
+			CAST(nutriments AS VARCHAR) as nutriments_json,
+			link,
+			CAST(ingredients AS VARCHAR) as ingredients_json
 		FROM read_parquet(?)
 		WHERE code = ?
 		LIMIT 1`
