@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
@@ -97,14 +98,30 @@ func (e *Engine) Close() error {
 // convertPythonListToJSON converts Python-like list format to valid JSON
 // OpenFoodFacts stores data in Python format with single quotes and NULL values
 func convertPythonListToJSON(pythonStr string) string {
-	// Handle common Python format issues for OpenFoodFacts data
-	jsonStr := strings.ReplaceAll(pythonStr, "'", `"`)        // Replace single quotes with double quotes
-	jsonStr = strings.ReplaceAll(jsonStr, " None", " null")   // Replace None with null
-	jsonStr = strings.ReplaceAll(jsonStr, "[None", "[null")   // Replace None at start of arrays
-	jsonStr = strings.ReplaceAll(jsonStr, ",None", ",null")   // Replace None in arrays
-	jsonStr = strings.ReplaceAll(jsonStr, "None]", "null]")   // Replace None at end of arrays
-	jsonStr = strings.ReplaceAll(jsonStr, "None,", "null,")   // Replace None before commas
-	jsonStr = strings.ReplaceAll(jsonStr, ": None", ": null") // Replace None in objects
+	// First replace single quotes with double quotes
+	jsonStr := strings.ReplaceAll(pythonStr, "'", `"`)
+
+	// Replace None/NULL with null
+	jsonStr = strings.ReplaceAll(jsonStr, " None", " null")
+	jsonStr = strings.ReplaceAll(jsonStr, "[None", "[null")
+	jsonStr = strings.ReplaceAll(jsonStr, ",None", ",null")
+	jsonStr = strings.ReplaceAll(jsonStr, "None]", "null]")
+	jsonStr = strings.ReplaceAll(jsonStr, "None,", "null,")
+	jsonStr = strings.ReplaceAll(jsonStr, ": None", ": null")
+	jsonStr = strings.ReplaceAll(jsonStr, " NULL", " null")
+	jsonStr = strings.ReplaceAll(jsonStr, "[NULL", "[null")
+	jsonStr = strings.ReplaceAll(jsonStr, ",NULL", ",null")
+	jsonStr = strings.ReplaceAll(jsonStr, "NULL]", "null]")
+	jsonStr = strings.ReplaceAll(jsonStr, "NULL,", "null,")
+	jsonStr = strings.ReplaceAll(jsonStr, ": NULL", ": null")
+
+	// Now handle unquoted string values
+	// This regex will find patterns like ": word" where word is not quoted and not a number/null
+	// and wrap them in quotes
+	// Common patterns: ": sodium", ": mg", ": g", ": kcal", etc.
+	re := regexp.MustCompile(`: ([a-zA-Z][a-zA-Z0-9\-_%]*)([ ,}\]])`)
+	jsonStr = re.ReplaceAllString(jsonStr, `: "$1"$2`)
+
 	return jsonStr
 }
 
