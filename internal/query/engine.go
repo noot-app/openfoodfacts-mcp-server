@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 	"time"
 
 	_ "github.com/marcboeker/go-duckdb/v2"
@@ -59,6 +61,34 @@ func NewEngine(parquetPath string, logger *slog.Logger) (*Engine, error) {
 // Close closes the database connection
 func (e *Engine) Close() error {
 	return e.db.Close()
+}
+
+// convertPythonListToJSON converts Python-like list format to valid JSON
+// OpenFoodFacts stores data in Python format with single quotes and NULL values
+func convertPythonListToJSON(pythonStr string) string {
+	// Replace single quotes with double quotes for JSON compatibility
+	jsonStr := strings.ReplaceAll(pythonStr, "'", "\"")
+	// Replace Python NULL with JSON null
+	jsonStr = strings.ReplaceAll(jsonStr, "NULL", "null")
+
+	// Handle unquoted string values - this is more complex and requires regex
+	// For the specific case of unquoted values, we need to be careful not to quote numbers
+	re := regexp.MustCompile(`"(\w+)":\s*([a-zA-Z][a-zA-Z0-9\-]*),`)
+	jsonStr = re.ReplaceAllString(jsonStr, `"$1": "$2",`)
+
+	// Handle unquoted strings at the end of objects (before })
+	re2 := regexp.MustCompile(`"(\w+)":\s*([a-zA-Z][a-zA-Z0-9\-]*)\s*}`)
+	jsonStr = re2.ReplaceAllString(jsonStr, `"$1": "$2"}`)
+
+	return jsonStr
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // SearchProductsByBrandAndName searches for products by name and brand
@@ -206,16 +236,27 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 
 		// Parse JSON fields
 		if nutrimentsStr.Valid && nutrimentsStr.String != "" {
-			var nutriments map[string]interface{}
-			if err := json.Unmarshal([]byte(nutrimentsStr.String), &nutriments); err != nil {
+			// Convert Python-like format to valid JSON
+			jsonStr := convertPythonListToJSON(nutrimentsStr.String)
+
+			// Parse as array first since OpenFoodFacts stores it as an array of nutrient objects
+			var nutrimentsArray []map[string]interface{}
+			if err := json.Unmarshal([]byte(jsonStr), &nutrimentsArray); err != nil {
+				e.log.Debug("Failed to parse nutriments JSON array", "error", err, "raw", nutrimentsStr.String[:min(100, len(nutrimentsStr.String))])
 				p.Nutriments = make(map[string]interface{}) // Use empty map on parse error
 			} else {
-				p.Nutriments = nutriments
+				// Convert array to map keyed by nutrient name
+				nutrientsMap := make(map[string]interface{})
+				for _, nutrient := range nutrimentsArray {
+					if name, ok := nutrient["name"].(string); ok {
+						nutrientsMap[name] = nutrient
+					}
+				}
+				p.Nutriments = nutrientsMap
 			}
 		} else {
 			p.Nutriments = make(map[string]interface{})
 		}
-
 		if ingredientsStr.Valid && ingredientsStr.String != "" {
 			var ingredients interface{}
 			if err := json.Unmarshal([]byte(ingredientsStr.String), &ingredients); err != nil {
@@ -300,11 +341,23 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 
 	// Parse JSON fields
 	if nutrimentsStr.Valid && nutrimentsStr.String != "" {
-		var nutriments map[string]interface{}
-		if err := json.Unmarshal([]byte(nutrimentsStr.String), &nutriments); err != nil {
+		// Convert Python-like format to valid JSON
+		jsonStr := convertPythonListToJSON(nutrimentsStr.String)
+
+		// Parse as array first since OpenFoodFacts stores it as an array of nutrient objects
+		var nutrimentsArray []map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonStr), &nutrimentsArray); err != nil {
+			e.log.Debug("Failed to parse nutriments JSON array", "error", err, "raw", nutrimentsStr.String[:min(100, len(nutrimentsStr.String))])
 			p.Nutriments = make(map[string]interface{}) // Use empty map on parse error
 		} else {
-			p.Nutriments = nutriments
+			// Convert array to map keyed by nutrient name
+			nutrientsMap := make(map[string]interface{})
+			for _, nutrient := range nutrimentsArray {
+				if name, ok := nutrient["name"].(string); ok {
+					nutrientsMap[name] = nutrient
+				}
+			}
+			p.Nutriments = nutrientsMap
 		}
 	} else {
 		p.Nutriments = make(map[string]interface{})
