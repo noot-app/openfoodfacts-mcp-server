@@ -1,12 +1,11 @@
 package mcp
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
-	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/query"
@@ -71,34 +70,53 @@ func registerTools(server *mcp.Server, tools *Tools) {
 	mcp.AddTool(server, nutritionTool, tools.GetNutritionAnalysis)
 }
 
-// CreateHandler creates an HTTP handler for the MCP server with authentication
+// CreateHandler creates an HTTP handler for the MCP server with API key authentication
 func (s *Server) CreateHandler() http.Handler {
-	// Create token verifier for Bearer token authentication
-	verifier := func(ctx context.Context, tokenString string) (*auth.TokenInfo, error) {
-		// Simple token verification - in production you'd validate JWT or API keys
-		if tokenString == s.config.AuthToken {
-			return &auth.TokenInfo{
-				Scopes: []string{"read", "write"},
-				Extra: map[string]any{
-					"user_id": "authenticated-user",
-				},
-			}, nil
-		}
-		return nil, auth.ErrInvalidToken
-	}
-
-	// Create authentication middleware
-	authMiddleware := auth.RequireBearerToken(verifier, &auth.RequireBearerTokenOptions{
-		Scopes: []string{"read"}, // Require at least read scope
-	})
-
 	// Create MCP handler
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return s.mcpServer
 	}, &mcp.StreamableHTTPOptions{})
 
-	// Apply authentication middleware
-	return authMiddleware(mcpHandler)
+	// Simple API key authentication middleware
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check for Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			s.log.Warn("Missing Authorization header")
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(w, "Authorization header required", http.StatusUnauthorized)
+			return
+		}
+
+		// Extract Bearer token
+		const bearerPrefix = "Bearer "
+		if !strings.HasPrefix(authHeader, bearerPrefix) {
+			s.log.Warn("Invalid Authorization header format")
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(w, "Bearer token required", http.StatusUnauthorized)
+			return
+		}
+
+		token := strings.TrimPrefix(authHeader, bearerPrefix)
+		if token == "" {
+			s.log.Warn("Empty Bearer token")
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(w, "Bearer token cannot be empty", http.StatusUnauthorized)
+			return
+		}
+
+		// Validate API key
+		if token != s.config.AuthToken {
+			s.log.Warn("Invalid API key provided")
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(w, "Invalid API key", http.StatusUnauthorized)
+			return
+		}
+
+		// API key is valid, proceed with request
+		s.log.Debug("API key authentication successful")
+		mcpHandler.ServeHTTP(w, r)
+	})
 }
 
 // CreateHealthHandler creates a health check handler
