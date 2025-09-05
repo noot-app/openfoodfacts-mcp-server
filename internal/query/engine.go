@@ -28,11 +28,32 @@ func NewEngine(parquetPath string, logger *slog.Logger) (*Engine, error) {
 		return nil, fmt.Errorf("failed to open duckdb: %w", err)
 	}
 
-	return &Engine{
+	// Configure connection pool for optimal performance
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(30 * time.Minute)
+
+	// Apply DuckDB performance optimizations
+	pragmaSettings := []string{
+		"PRAGMA memory_limit='2GB'",
+		"PRAGMA threads=4",
+		"PRAGMA enable_progress_bar=false",
+		"PRAGMA checkpoint_threshold='1GB'",
+	}
+
+	for _, pragma := range pragmaSettings {
+		if _, err := db.Exec(pragma); err != nil {
+			logger.Warn("Failed to apply DuckDB optimization", "pragma", pragma, "error", err)
+		}
+	}
+
+	engine := &Engine{
 		db:          db,
 		parquetPath: parquetPath,
 		log:         logger,
-	}, nil
+	}
+
+	return engine, nil
 }
 
 // Close closes the database connection
@@ -43,7 +64,7 @@ func (e *Engine) Close() error {
 // SearchProductsByBrandAndName searches for products by name and brand
 func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]Product, error) {
 	totalStart := time.Now()
-	e.log.Info("SearchProductsByBrandAndName starting", "name", name, "brand", brand, "limit", limit, "parquet_path", e.parquetPath)
+	e.log.Debug("SearchProductsByBrandAndName starting", "name", name, "brand", brand, "limit", limit)
 
 	// Build optimized query with pre-computed text extraction
 	// Use simpler approach to avoid nested operations in WHERE clause
@@ -139,10 +160,9 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 		args = append(args, limit)
 	}
 
-	e.log.Info("Query built", "duration", time.Since(queryBuildStart), "sql_length", len(query))
+	e.log.Debug("Query built", "duration", time.Since(queryBuildStart), "sql_length", len(query))
 
 	queryStart := time.Now()
-	e.log.Info("Executing DuckDB query", "query", query)
 	rows, err := e.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		e.log.Error("DuckDB query failed", "error", err, "duration", time.Since(queryStart))
@@ -150,7 +170,7 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 	}
 	defer rows.Close()
 
-	e.log.Info("Query executed", "duration", time.Since(queryStart))
+	e.log.Debug("Query executed", "duration", time.Since(queryStart))
 
 	scanStart := time.Now()
 	rowCount := 0
@@ -167,8 +187,7 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 		var brandsStr sql.NullString
 
 		if err := rows.Scan(&codeStr, &productNameStr, &brandsStr, &nutrimentsStr, &linkStr, &ingredientsStr); err != nil {
-			e.log.Error("Row scan failed", "error", err)
-			continue
+			continue // Skip malformed rows
 		}
 
 		// Handle nullable fields
@@ -189,8 +208,7 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 		if nutrimentsStr.Valid && nutrimentsStr.String != "" {
 			var nutriments map[string]interface{}
 			if err := json.Unmarshal([]byte(nutrimentsStr.String), &nutriments); err != nil {
-				e.log.Debug("Failed to parse nutriments JSON", "error", err, "code", p.Code)
-				p.Nutriments = make(map[string]interface{})
+				p.Nutriments = make(map[string]interface{}) // Use empty map on parse error
 			} else {
 				p.Nutriments = nutriments
 			}
@@ -201,8 +219,7 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 		if ingredientsStr.Valid && ingredientsStr.String != "" {
 			var ingredients interface{}
 			if err := json.Unmarshal([]byte(ingredientsStr.String), &ingredients); err != nil {
-				e.log.Debug("Failed to parse ingredients JSON", "error", err, "code", p.Code)
-				p.Ingredients = ingredientsStr.String
+				p.Ingredients = ingredientsStr.String // Use raw string on parse error
 			} else {
 				p.Ingredients = ingredients
 			}
@@ -216,7 +233,7 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	e.log.Info("Row scanning completed", "rows_scanned", rowCount, "scan_duration", time.Since(scanStart))
+	e.log.Debug("Row scanning completed", "rows_scanned", rowCount, "scan_duration", time.Since(scanStart))
 
 	totalDuration := time.Since(totalStart)
 	e.log.Info("SearchProductsByBrandAndName completed", "count", len(results), "total_duration", totalDuration)
@@ -245,7 +262,6 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 
 	rows, err := e.db.QueryContext(ctx, query, e.parquetPath, barcode)
 	if err != nil {
-		e.log.Error("DuckDB barcode query failed", "error", err, "duration", time.Since(start))
 		return nil, fmt.Errorf("barcode query failed: %w", err)
 	}
 	defer rows.Close()
@@ -286,8 +302,7 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 	if nutrimentsStr.Valid && nutrimentsStr.String != "" {
 		var nutriments map[string]interface{}
 		if err := json.Unmarshal([]byte(nutrimentsStr.String), &nutriments); err != nil {
-			e.log.Debug("Failed to parse nutriments JSON", "error", err, "code", p.Code)
-			p.Nutriments = make(map[string]interface{})
+			p.Nutriments = make(map[string]interface{}) // Use empty map on parse error
 		} else {
 			p.Nutriments = nutriments
 		}
@@ -298,8 +313,7 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 	if ingredientsStr.Valid && ingredientsStr.String != "" {
 		var ingredients interface{}
 		if err := json.Unmarshal([]byte(ingredientsStr.String), &ingredients); err != nil {
-			e.log.Debug("Failed to parse ingredients JSON", "error", err, "code", p.Code)
-			p.Ingredients = ingredientsStr.String
+			p.Ingredients = ingredientsStr.String // Use raw string on parse error
 		} else {
 			p.Ingredients = ingredients
 		}

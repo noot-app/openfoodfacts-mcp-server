@@ -83,10 +83,13 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/query", s.handleQuery)
 
-	// Create server
+	// Create server with timeouts and keep-alive settings
 	server := &http.Server{
-		Addr:    ":" + s.config.Port,
-		Handler: mux,
+		Addr:         ":" + s.config.Port,
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	// Start server in goroutine
