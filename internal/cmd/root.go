@@ -27,7 +27,7 @@ Available MCP Tools:
 
 Authentication:
 Bearer token authentication is required for all MCP endpoints.
-Use the OPENFOODFACTS_AUTH_TOKEN environment variable to set the token.`,
+Use the OPENFOODFACTS_MCP_TOKEN environment variable to set the token.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Setup structured logging
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{

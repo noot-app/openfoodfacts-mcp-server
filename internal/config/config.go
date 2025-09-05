@@ -69,7 +69,7 @@ func LoadWithFileReader(fileReader FileReader) *Config {
 	}
 
 	return &Config{
-		AuthToken:            getEnv("AUTH_TOKEN", "super-secret-token"),
+		AuthToken:            getEnv("OPENFOODFACTS_MCP_TOKEN", "super-secret-token"),
 		ParquetURL:           getEnv("PARQUET_URL", "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet"),
 		DataDir:              dataDir,
 		ParquetPath:          getEnv("PARQUET_PATH", filepath.Join(dataDir, "product-database.parquet")),

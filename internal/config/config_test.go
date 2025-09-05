@@ -53,10 +53,10 @@ func TestLoad(t *testing.T) {
 		{
 			name: "custom values",
 			envVars: map[string]string{
-				"AUTH_TOKEN":             "custom-token",
-				"DATA_DIR":               "/custom/data",
-				"REFRESH_INTERVAL_HOURS": "12",
-				"PORT":                   "3000",
+				"OPENFOODFACTS_MCP_TOKEN": "custom-token",
+				"DATA_DIR":                "/custom/data",
+				"REFRESH_INTERVAL_HOURS":  "12",
+				"PORT":                    "3000",
 			},
 			expected: &Config{
 				AuthToken:            "custom-token",
@@ -93,7 +93,7 @@ func TestLoad(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear ALL environment variables that might affect the test
 			envVarsToClean := []string{
-				"AUTH_TOKEN", "PARQUET_URL", "DATA_DIR", "PARQUET_PATH",
+				"OPENFOODFACTS_MCP_TOKEN", "PARQUET_URL", "DATA_DIR", "PARQUET_PATH",
 				"METADATA_PATH", "LOCK_FILE", "REFRESH_INTERVAL_HOURS",
 				"PORT", "ENV",
 			}
@@ -174,7 +174,7 @@ func TestLoadEnvFile(t *testing.T) {
 	t.Run("with .env file", func(t *testing.T) {
 		// Test .env file content
 		envContent := `# Test .env file
-AUTH_TOKEN=test-token-from-env
+OPENFOODFACTS_MCP_TOKEN=test-token-from-env
 PORT=9999
 # Comment line
 EMPTY_LINE_ABOVE=yes
@@ -191,7 +191,7 @@ ANOTHER_VAR=value with spaces
 		}
 
 		// Clear existing env vars that might be set
-		os.Unsetenv("AUTH_TOKEN")
+		os.Unsetenv("OPENFOODFACTS_MCP_TOKEN")
 		os.Unsetenv("PORT")
 		os.Unsetenv("ANOTHER_VAR")
 
@@ -199,20 +199,20 @@ ANOTHER_VAR=value with spaces
 		loadEnvFileWithReader(mockReader)
 
 		// Check that values were loaded
-		assert.Equal(t, "test-token-from-env", os.Getenv("AUTH_TOKEN"))
+		assert.Equal(t, "test-token-from-env", os.Getenv("OPENFOODFACTS_MCP_TOKEN"))
 		assert.Equal(t, "9999", os.Getenv("PORT"))
 		assert.Equal(t, "value with spaces", os.Getenv("ANOTHER_VAR"))
 
 		// Test CLI override: set an env var and reload
-		os.Setenv("AUTH_TOKEN", "cli-override-token")
+		os.Setenv("OPENFOODFACTS_MCP_TOKEN", "cli-override-token")
 		loadEnvFileWithReader(mockReader)
 
 		// CLI value should take precedence
-		assert.Equal(t, "cli-override-token", os.Getenv("AUTH_TOKEN"))
+		assert.Equal(t, "cli-override-token", os.Getenv("OPENFOODFACTS_MCP_TOKEN"))
 		assert.Equal(t, "9999", os.Getenv("PORT")) // .env value should remain
 
 		// Cleanup
-		os.Unsetenv("AUTH_TOKEN")
+		os.Unsetenv("OPENFOODFACTS_MCP_TOKEN")
 		os.Unsetenv("PORT")
 		os.Unsetenv("ANOTHER_VAR")
 	})
@@ -222,20 +222,20 @@ ANOTHER_VAR=value with spaces
 		mockReader := MockFileReader{files: map[string]string{}}
 
 		// Clear existing env vars
-		os.Unsetenv("AUTH_TOKEN")
+		os.Unsetenv("OPENFOODFACTS_MCP_TOKEN")
 		os.Unsetenv("PORT")
 
 		// Set a CLI env var
-		os.Setenv("AUTH_TOKEN", "cli-token")
+		os.Setenv("OPENFOODFACTS_MCP_TOKEN", "cli-token")
 
 		// Load with no .env file should not error and should not affect CLI vars
 		loadEnvFileWithReader(mockReader)
 
 		// CLI variable should remain unchanged
-		assert.Equal(t, "cli-token", os.Getenv("AUTH_TOKEN"))
+		assert.Equal(t, "cli-token", os.Getenv("OPENFOODFACTS_MCP_TOKEN"))
 		assert.Equal(t, "", os.Getenv("PORT")) // Should remain empty
 
 		// Cleanup
-		os.Unsetenv("AUTH_TOKEN")
+		os.Unsetenv("OPENFOODFACTS_MCP_TOKEN")
 	})
 }

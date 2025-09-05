@@ -29,8 +29,8 @@ Add this to your Claude Desktop MCP settings (`~/Library/Application Support/Cla
     "openfoodfacts": {
       "command": "/path/to/openfoodfacts-mcp-server",
       "env": {
-        "AUTH_TOKEN": "your-local-secret-token",
-        "DATA_DIR": "./data",
+        "OPENFOODFACTS_MCP_TOKEN": "your-secret-token",
+        "DATA_DIR": "/full/path/to/openfoodfacts-mcp-server/data",
         "PORT": "8080"
       }
     }
@@ -50,7 +50,7 @@ For production deployment, configure these environment variables:
 
 ```bash
 # Required: Authentication
-AUTH_TOKEN=your-production-secret-token
+OPENFOODFACTS_MCP_TOKEN=your-production-secret-token
 
 # Optional: Data management
 DATA_DIR=./data
