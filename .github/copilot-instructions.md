@@ -31,3 +31,4 @@ This is a Go based repository that is a MCP server for OpenFoodFacts.
 7. When writing unit tests, always strive for 100% code coverage where it makes sense. Try to consider edge cases as well.
 8. Always strive to keep the codebase clean and maintainable. Avoid unnecessary complexity and always consider the long-term maintainability of the code.
 9. Always strive for the highest level of code coverage with unit tests where possible.
+10. Keep your responses and summary messages short, and very concise. Don't over explain unless asked to in your "what I did" summaries.
