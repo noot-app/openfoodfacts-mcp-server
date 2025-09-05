@@ -258,7 +258,7 @@ func testMCPToolCall() error {
 	fmt.Printf("   🔍 Running tests: 5 queries for Olipop Cream Soda...\n")
 
 	for i := 1; i <= 5; i++ {
-		fmt.Printf("   � Query %d/5: ", i)
+		fmt.Printf("   🧪 Query %d/5: ", i)
 
 		start := time.Now()
 
@@ -533,7 +533,7 @@ func testPerformanceUnderLoad() error {
 	concurrencyLevels := []int{2, 5, 10}
 	requestsPerLevel := 5 // Fewer requests for more focused testing
 
-	fmt.Printf("\n   � Phase 2: Concurrent load testing...\n")
+	fmt.Printf("\n   🧪 Phase 2: Concurrent load testing...\n")
 	fmt.Printf("   🎯 Target: Identify optimal concurrency vs performance trade-offs\n\n")
 
 	for _, concurrency := range concurrencyLevels {
@@ -550,14 +550,6 @@ func testPerformanceUnderLoad() error {
 		// Brief pause between concurrency levels to let server recover
 		time.Sleep(1 * time.Second)
 	}
-
-	fmt.Printf("   💡 Performance Analysis Complete:\n")
-	fmt.Printf("      - Server handles low concurrency well\n")
-	fmt.Printf("      - For production high concurrency, consider:\n")
-	fmt.Printf("        • Increasing DUCKDB_THREADS (currently 4)\n")
-	fmt.Printf("        • Increasing DUCKDB_MEMORY_LIMIT (currently 4GB)\n")
-	fmt.Printf("        • Using connection pooling\n")
-	fmt.Printf("        • Adding query result caching\n")
 
 	return nil
 }
