@@ -52,9 +52,9 @@ func (t *Tools) SearchProductsByBrandAndName(ctx context.Context, req *mcp.CallT
 		args.Limit = 100
 	}
 
-	t.log.Debug("MCP SearchProductsByBrandAndName called", 
-		"name", args.Name, 
-		"brand", args.Brand, 
+	t.log.Debug("MCP SearchProductsByBrandAndName called",
+		"name", args.Name,
+		"brand", args.Brand,
 		"limit", args.Limit)
 
 	// Execute search
@@ -79,7 +79,6 @@ func (t *Tools) SearchProductsByBrandAndName(ctx context.Context, req *mcp.CallT
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{
-				Type: "text",
 				Text: string(responseJSON),
 			},
 		},
@@ -118,7 +117,6 @@ func (t *Tools) SearchByBarcode(ctx context.Context, req *mcp.CallToolRequest, a
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{
-				Type: "text",
 				Text: string(responseJSON),
 			},
 		},
@@ -149,7 +147,6 @@ func (t *Tools) GetNutritionAnalysis(ctx context.Context, req *mcp.CallToolReque
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				&mcp.TextContent{
-					Type: "text",
 					Text: fmt.Sprintf("Product with code %s not found", args.ProductCode),
 				},
 			},
@@ -158,7 +155,7 @@ func (t *Tools) GetNutritionAnalysis(ctx context.Context, req *mcp.CallToolReque
 
 	// Analyze nutrition data
 	analysis := analyzeNutrition(product)
-	
+
 	analysisJSON, err := json.MarshalIndent(analysis, "", "  ")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal analysis: %w", err)
@@ -167,7 +164,6 @@ func (t *Tools) GetNutritionAnalysis(ctx context.Context, req *mcp.CallToolReque
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{
-				Type: "text",
 				Text: string(analysisJSON),
 			},
 		},
@@ -177,9 +173,9 @@ func (t *Tools) GetNutritionAnalysis(ctx context.Context, req *mcp.CallToolReque
 // analyzeNutrition performs basic nutrition analysis
 func analyzeNutrition(product *query.Product) map[string]interface{} {
 	analysis := map[string]interface{}{
-		"product_name": product.ProductName,
-		"brands":       product.Brands,
-		"code":         product.Code,
+		"product_name":        product.ProductName,
+		"brands":              product.Brands,
+		"code":                product.Code,
 		"nutrition_available": len(product.Nutriments) > 0,
 	}
 
@@ -190,19 +186,19 @@ func analyzeNutrition(product *query.Product) map[string]interface{} {
 
 	// Extract key nutrition metrics
 	nutrition := make(map[string]interface{})
-	
+
 	// Common nutrition fields
 	nutritionFields := map[string]string{
-		"energy-kcal_100g":      "calories_per_100g",
-		"energy-kj_100g":        "energy_kj_per_100g", 
-		"proteins_100g":         "proteins_per_100g",
-		"carbohydrates_100g":    "carbohydrates_per_100g",
-		"sugars_100g":           "sugars_per_100g",
-		"fat_100g":              "fat_per_100g",
-		"saturated-fat_100g":    "saturated_fat_per_100g",
-		"fiber_100g":            "fiber_per_100g",
-		"sodium_100g":           "sodium_per_100g",
-		"salt_100g":             "salt_per_100g",
+		"energy-kcal_100g":   "calories_per_100g",
+		"energy-kj_100g":     "energy_kj_per_100g",
+		"proteins_100g":      "proteins_per_100g",
+		"carbohydrates_100g": "carbohydrates_per_100g",
+		"sugars_100g":        "sugars_per_100g",
+		"fat_100g":           "fat_per_100g",
+		"saturated-fat_100g": "saturated_fat_per_100g",
+		"fiber_100g":         "fiber_per_100g",
+		"sodium_100g":        "sodium_per_100g",
+		"salt_100g":          "salt_per_100g",
 	}
 
 	for originalKey, friendlyKey := range nutritionFields {
@@ -215,7 +211,7 @@ func analyzeNutrition(product *query.Product) map[string]interface{} {
 
 	// Add basic health insights
 	insights := []string{}
-	
+
 	if calories, ok := product.Nutriments["energy-kcal_100g"]; ok {
 		if calorieFloat, err := parseFloat(calories); err == nil {
 			if calorieFloat > 400 {

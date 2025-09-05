@@ -18,7 +18,17 @@ var rootCmd = &cobra.Command{
 via a remote MCP server using DuckDB for fast queries.
 
 The server downloads and caches the Open Food Facts Parquet dataset
-and provides HTTP endpoints for product searches by name, brand, and barcode.`,
+and provides MCP-compliant endpoints for product searches, nutrition analysis,
+and barcode lookups with proper authentication and JSON-RPC 2.0 support.
+
+Available MCP Tools:
+- search_products_by_brand_and_name: Search products by name and brand
+- search_by_barcode: Find product by barcode (UPC/EAN)
+- get_nutrition_analysis: Get nutrition insights for a product
+
+Authentication:
+Bearer token authentication is required for all MCP endpoints.
+Use the OPENFOODFACTS_AUTH_TOKEN environment variable to set the token.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Setup structured logging
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -28,8 +38,8 @@ and provides HTTP endpoints for product searches by name, brand, and barcode.`,
 		// Load configuration
 		cfg := config.Load()
 
-		// Create and start server
-		srv := server.New(cfg, logger)
+		// Create and start MCP server
+		srv := server.NewMCPServer(cfg, logger)
 		return srv.Start(context.Background())
 	},
 }
