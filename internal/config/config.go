@@ -35,7 +35,8 @@ type Config struct {
 	LockFile     string
 
 	// Refresh behavior
-	RefreshIntervalHours int
+	RefreshIntervalSeconds int
+	DisableRemoteCheck     bool
 
 	// Server
 	Port string
@@ -67,10 +68,10 @@ func LoadWithFileReader(fileReader FileReader) *Config {
 
 	dataDir := getEnv("DATA_DIR", "./data")
 
-	refreshHours := 24
-	if h := os.Getenv("REFRESH_INTERVAL_HOURS"); h != "" {
-		if parsed, err := strconv.Atoi(h); err == nil {
-			refreshHours = parsed
+	refreshSeconds := 86400 // Default to 24 hours in seconds
+	if s := os.Getenv("REFRESH_INTERVAL_SECONDS"); s != "" {
+		if parsed, err := strconv.Atoi(s); err == nil {
+			refreshSeconds = parsed
 		}
 	}
 
@@ -89,16 +90,25 @@ func LoadWithFileReader(fileReader FileReader) *Config {
 		}
 	}
 
+	// Parse disable remote check flag
+	disableRemoteCheck := false // Default to false (allow remote checks)
+	if d := os.Getenv("DISABLE_REMOTE_CHECK"); d != "" {
+		if parsed, err := strconv.ParseBool(d); err == nil {
+			disableRemoteCheck = parsed
+		}
+	}
+
 	return &Config{
-		AuthToken:            getEnv("OPENFOODFACTS_MCP_TOKEN", "super-secret-token"),
-		ParquetURL:           getEnv("PARQUET_URL", "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet"),
-		DataDir:              dataDir,
-		ParquetPath:          getEnv("PARQUET_PATH", filepath.Join(dataDir, "product-database.parquet")),
-		MetadataPath:         getEnv("METADATA_PATH", filepath.Join(dataDir, "metadata.json")),
-		LockFile:             getEnv("LOCK_FILE", filepath.Join(dataDir, "refresh.lock")),
-		RefreshIntervalHours: refreshHours,
-		Port:                 getEnv("PORT", "8080"),
-		Environment:          getEnv("ENV", "production"),
+		AuthToken:              getEnv("OPENFOODFACTS_MCP_TOKEN", "super-secret-token"),
+		ParquetURL:             getEnv("PARQUET_URL", "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet"),
+		DataDir:                dataDir,
+		ParquetPath:            getEnv("PARQUET_PATH", filepath.Join(dataDir, "product-database.parquet")),
+		MetadataPath:           getEnv("METADATA_PATH", filepath.Join(dataDir, "metadata.json")),
+		LockFile:               getEnv("LOCK_FILE", filepath.Join(dataDir, "refresh.lock")),
+		RefreshIntervalSeconds: refreshSeconds,
+		DisableRemoteCheck:     disableRemoteCheck,
+		Port:                   getEnv("PORT", "8080"),
+		Environment:            getEnv("ENV", "production"),
 
 		// DuckDB Performance Settings with sensible defaults
 		DuckDBMemoryLimit:            getEnv("DUCKDB_MEMORY_LIMIT", "4GB"),
@@ -143,7 +153,7 @@ func loadEnvFileWithReader(fileReader FileReader) {
 
 // RefreshInterval returns the refresh interval as a duration
 func (c *Config) RefreshInterval() time.Duration {
-	return time.Duration(c.RefreshIntervalHours) * time.Hour
+	return time.Duration(c.RefreshIntervalSeconds) * time.Second
 }
 
 func getEnv(key, defaultValue string) string {

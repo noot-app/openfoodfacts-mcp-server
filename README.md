@@ -80,7 +80,7 @@ OPENFOODFACTS_MCP_TOKEN=your-production-secret-token
 # Optional: Data management
 DATA_DIR=./data
 PARQUET_URL=https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet
-REFRESH_INTERVAL_HOURS=24
+REFRESH_INTERVAL_SECONDS=86400
 
 # Optional: Server configuration  
 PORT=8080

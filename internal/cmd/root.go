@@ -82,6 +82,7 @@ func runStdioMode(cmd *cobra.Command, args []string) error {
 		cfg.ParquetPath,
 		cfg.MetadataPath,
 		cfg.LockFile,
+		cfg,
 		logger,
 	)
 

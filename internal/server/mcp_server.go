@@ -33,6 +33,7 @@ func NewMCPServer(cfg *config.Config, logger *slog.Logger) *MCPServer {
 		cfg.ParquetPath,
 		cfg.MetadataPath,
 		cfg.LockFile,
+		cfg,
 		logger,
 	)
 
@@ -59,7 +60,7 @@ func (s *MCPServer) Start(ctx context.Context) error {
 	}
 
 	// Start refresh loop if configured
-	if s.config.RefreshIntervalHours > 0 {
+	if s.config.RefreshIntervalSeconds > 0 {
 		s.startRefreshLoop(ctx)
 	}
 
@@ -160,10 +161,10 @@ func (s *MCPServer) initialize(ctx context.Context) error {
 // startRefreshLoop starts a background goroutine to refresh the dataset
 func (s *MCPServer) startRefreshLoop(ctx context.Context) {
 	go func() {
-		ticker := time.NewTicker(time.Duration(s.config.RefreshIntervalHours) * time.Hour)
+		ticker := time.NewTicker(time.Duration(s.config.RefreshIntervalSeconds) * time.Second)
 		defer ticker.Stop()
 
-		s.log.Info("Started dataset refresh loop", "interval_hours", s.config.RefreshIntervalHours)
+		s.log.Info("Started dataset refresh loop", "interval_seconds", s.config.RefreshIntervalSeconds)
 
 		for {
 			select {

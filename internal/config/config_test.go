@@ -39,15 +39,16 @@ func TestLoad(t *testing.T) {
 			name:    "default values",
 			envVars: map[string]string{},
 			expected: &Config{
-				AuthToken:            "super-secret-token",
-				ParquetURL:           "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet",
-				DataDir:              "./data",
-				ParquetPath:          "data/product-database.parquet", // filepath.Join result
-				MetadataPath:         "data/metadata.json",            // filepath.Join result
-				LockFile:             "data/refresh.lock",             // filepath.Join result
-				RefreshIntervalHours: 24,
-				Port:                 "8080",
-				Environment:          "production",
+				AuthToken:              "super-secret-token",
+				ParquetURL:             "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet",
+				DataDir:                "./data",
+				ParquetPath:            "data/product-database.parquet", // filepath.Join result
+				MetadataPath:           "data/metadata.json",            // filepath.Join result
+				LockFile:               "data/refresh.lock",             // filepath.Join result
+				RefreshIntervalSeconds: 86400,
+				DisableRemoteCheck:     false,
+				Port:                   "8080",
+				Environment:            "production",
 				// DuckDB defaults
 				DuckDBMemoryLimit:            "4GB",
 				DuckDBThreads:                4,
@@ -58,21 +59,22 @@ func TestLoad(t *testing.T) {
 		{
 			name: "custom values",
 			envVars: map[string]string{
-				"OPENFOODFACTS_MCP_TOKEN": "custom-token",
-				"DATA_DIR":                "/custom/data",
-				"REFRESH_INTERVAL_HOURS":  "12",
-				"PORT":                    "3000",
+				"OPENFOODFACTS_MCP_TOKEN":  "custom-token",
+				"DATA_DIR":                 "/custom/data",
+				"REFRESH_INTERVAL_SECONDS": "43200",
+				"PORT":                     "3000",
 			},
 			expected: &Config{
-				AuthToken:            "custom-token",
-				ParquetURL:           "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet",
-				DataDir:              "/custom/data",
-				ParquetPath:          "/custom/data/product-database.parquet",
-				MetadataPath:         "/custom/data/metadata.json",
-				LockFile:             "/custom/data/refresh.lock",
-				RefreshIntervalHours: 12,
-				Port:                 "3000",
-				Environment:          "production",
+				AuthToken:              "custom-token",
+				ParquetURL:             "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet",
+				DataDir:                "/custom/data",
+				ParquetPath:            "/custom/data/product-database.parquet",
+				MetadataPath:           "/custom/data/metadata.json",
+				LockFile:               "/custom/data/refresh.lock",
+				RefreshIntervalSeconds: 43200,
+				DisableRemoteCheck:     false,
+				Port:                   "3000",
+				Environment:            "production",
 				// DuckDB defaults
 				DuckDBMemoryLimit:            "4GB",
 				DuckDBThreads:                4,
@@ -83,18 +85,42 @@ func TestLoad(t *testing.T) {
 		{
 			name: "zero refresh interval",
 			envVars: map[string]string{
-				"REFRESH_INTERVAL_HOURS": "0",
+				"REFRESH_INTERVAL_SECONDS": "0",
 			},
 			expected: &Config{
-				AuthToken:            "super-secret-token",
-				ParquetURL:           "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet",
-				DataDir:              "./data",
-				ParquetPath:          "data/product-database.parquet", // filepath.Join result
-				MetadataPath:         "data/metadata.json",            // filepath.Join result
-				LockFile:             "data/refresh.lock",             // filepath.Join result
-				RefreshIntervalHours: 0,
-				Port:                 "8080",
-				Environment:          "production",
+				AuthToken:              "super-secret-token",
+				ParquetURL:             "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet",
+				DataDir:                "./data",
+				ParquetPath:            "data/product-database.parquet", // filepath.Join result
+				MetadataPath:           "data/metadata.json",            // filepath.Join result
+				LockFile:               "data/refresh.lock",             // filepath.Join result
+				RefreshIntervalSeconds: 0,
+				DisableRemoteCheck:     false,
+				Port:                   "8080",
+				Environment:            "production",
+				// DuckDB defaults
+				DuckDBMemoryLimit:            "4GB",
+				DuckDBThreads:                4,
+				DuckDBCheckpointThreshold:    "1GB",
+				DuckDBPreserveInsertionOrder: true,
+			},
+		},
+		{
+			name: "disable remote check",
+			envVars: map[string]string{
+				"DISABLE_REMOTE_CHECK": "true",
+			},
+			expected: &Config{
+				AuthToken:              "super-secret-token",
+				ParquetURL:             "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet",
+				DataDir:                "./data",
+				ParquetPath:            "data/product-database.parquet", // filepath.Join result
+				MetadataPath:           "data/metadata.json",            // filepath.Join result
+				LockFile:               "data/refresh.lock",             // filepath.Join result
+				RefreshIntervalSeconds: 86400,
+				DisableRemoteCheck:     true,
+				Port:                   "8080",
+				Environment:            "production",
 				// DuckDB defaults
 				DuckDBMemoryLimit:            "4GB",
 				DuckDBThreads:                4,
@@ -109,8 +135,8 @@ func TestLoad(t *testing.T) {
 			// Clear ALL environment variables that might affect the test
 			envVarsToClean := []string{
 				"OPENFOODFACTS_MCP_TOKEN", "PARQUET_URL", "DATA_DIR", "PARQUET_PATH",
-				"METADATA_PATH", "LOCK_FILE", "REFRESH_INTERVAL_HOURS",
-				"PORT", "ENV",
+				"METADATA_PATH", "LOCK_FILE", "REFRESH_INTERVAL_SECONDS",
+				"PORT", "ENV", "DISABLE_REMOTE_CHECK",
 				// DuckDB configuration variables
 				"DUCKDB_MEMORY_LIMIT", "DUCKDB_THREADS", "DUCKDB_CHECKPOINT_THRESHOLD",
 				"DUCKDB_PRESERVE_INSERTION_ORDER",
@@ -145,10 +171,10 @@ func TestLoad(t *testing.T) {
 }
 
 func TestRefreshInterval(t *testing.T) {
-	config := &Config{RefreshIntervalHours: 24}
+	config := &Config{RefreshIntervalSeconds: 86400}
 	assert.Equal(t, "24h0m0s", config.RefreshInterval().String())
 
-	config = &Config{RefreshIntervalHours: 0}
+	config = &Config{RefreshIntervalSeconds: 0}
 	assert.Equal(t, "0s", config.RefreshInterval().String())
 }
 

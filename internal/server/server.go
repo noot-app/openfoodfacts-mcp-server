@@ -53,6 +53,7 @@ func New(cfg *config.Config, logger *slog.Logger) *Server {
 		cfg.ParquetPath,
 		cfg.MetadataPath,
 		cfg.LockFile,
+		cfg,
 		logger,
 	)
 
@@ -74,7 +75,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	// Start refresh loop if configured
-	if s.config.RefreshIntervalHours > 0 {
+	if s.config.RefreshIntervalSeconds > 0 {
 		s.startRefreshLoop(ctx)
 	}
 

@@ -43,7 +43,7 @@ EXPOSE 8080
 ENV DATA_DIR=./data
 ENV PORT=8080
 ENV PARQUET_URL=https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet
-ENV REFRESH_INTERVAL_HOURS=24
+ENV REFRESH_INTERVAL_SECONDS=86400
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
