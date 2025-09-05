@@ -98,53 +98,96 @@ func (e *Engine) Close() error {
 // convertPythonListToJSON converts Python-like list format to valid JSON
 // OpenFoodFacts stores data in Python format with single quotes and NULL values
 func convertPythonListToJSON(pythonStr string) string {
+	if pythonStr == "" {
+		return "[]"
+	}
+
 	// First replace single quotes with double quotes
 	jsonStr := strings.ReplaceAll(pythonStr, "'", `"`)
 
-	// Replace None/NULL with null
-	jsonStr = strings.ReplaceAll(jsonStr, " None", " null")
-	jsonStr = strings.ReplaceAll(jsonStr, "[None", "[null")
-	jsonStr = strings.ReplaceAll(jsonStr, ",None", ",null")
-	jsonStr = strings.ReplaceAll(jsonStr, "None]", "null]")
-	jsonStr = strings.ReplaceAll(jsonStr, "None,", "null,")
-	jsonStr = strings.ReplaceAll(jsonStr, ": None", ": null")
-	jsonStr = strings.ReplaceAll(jsonStr, " NULL", " null")
-	jsonStr = strings.ReplaceAll(jsonStr, "[NULL", "[null")
-	jsonStr = strings.ReplaceAll(jsonStr, ",NULL", ",null")
-	jsonStr = strings.ReplaceAll(jsonStr, "NULL]", "null]")
-	jsonStr = strings.ReplaceAll(jsonStr, "NULL,", "null,")
-	jsonStr = strings.ReplaceAll(jsonStr, ": NULL", ": null")
+	// Replace None/NULL with null (case-insensitive) - must be done BEFORE quoting unquoted strings
+	replacements := []struct{ old, new string }{
+		{" None", " null"},
+		{"[None", "[null"},
+		{",None", ",null"},
+		{"None]", "null]"},
+		{"None,", "null,"},
+		{": None", ": null"},
+		{" NULL", " null"},
+		{"[NULL", "[null"},
+		{",NULL", ",null"},
+		{"NULL]", "null]"},
+		{"NULL,", "null,"},
+		{": NULL", ": null"},
+		{" none", " null"},
+		{"[none", "[null"},
+		{",none", ",null"},
+		{"none]", "null]"},
+		{"none,", "null,"},
+		{": none", ": null"},
+	}
 
-	// Now handle unquoted string values
-	// This regex will find patterns like ": word" where word is not quoted and not a number/null
-	// and wrap them in quotes
-	// Common patterns: ": sodium", ": mg", ": g", ": kcal", etc.
-	re := regexp.MustCompile(`: ([a-zA-Z][a-zA-Z0-9\-_%]*)([ ,}\]])`)
-	jsonStr = re.ReplaceAllString(jsonStr, `: "$1"$2`)
+	for _, r := range replacements {
+		jsonStr = strings.ReplaceAll(jsonStr, r.old, r.new)
+	}
+
+	// Handle unquoted string values using regex
+	// This will quote unquoted identifiers like: sodium, mg, g, kcal, % vol, etc.
+	// Pattern matches: ": word" or ": word-with-dashes" or ": % vol"
+	// BUT EXCLUDES numbers and already converted 'null' values
+	re := regexp.MustCompile(`: ([a-zA-Z%][a-zA-Z0-9\-_%\s]*)([ ,}\]])`)
+	jsonStr = re.ReplaceAllStringFunc(jsonStr, func(match string) string {
+		// Extract the matched groups
+		submatches := re.FindStringSubmatch(match)
+		if len(submatches) < 3 {
+			return match
+		}
+
+		value := submatches[1]
+		suffix := submatches[2]
+
+		// Don't quote 'null' values that we just converted
+		if value == "null" {
+			return ": " + value + suffix
+		}
+
+		// Quote everything else
+		return `: "` + value + `"` + suffix
+	})
 
 	return jsonStr
 }
 
-// parseNutrimentsJSON parses nutriments JSON data with error handling
+// parseNutrimentsJSON parses nutriments JSON data with comprehensive error handling
 func (e *Engine) parseNutrimentsJSON(nutrimentsStr sql.NullString) map[string]interface{} {
 	if !nutrimentsStr.Valid || nutrimentsStr.String == "" {
 		return make(map[string]interface{})
 	}
 
+	rawStr := nutrimentsStr.String
+
 	// Convert Python-like format to valid JSON
-	jsonStr := convertPythonListToJSON(nutrimentsStr.String)
+	jsonStr := convertPythonListToJSON(rawStr)
 
 	// Parse as array first since OpenFoodFacts stores it as an array of nutrient objects
 	var nutrimentsArray []map[string]interface{}
 	if err := json.Unmarshal([]byte(jsonStr), &nutrimentsArray); err != nil {
-		e.log.Debug("Failed to parse nutriments JSON array", "error", err, "raw", nutrimentsStr.String[:min(MaxJSONDebugLength, len(nutrimentsStr.String))])
+		// Log the error with truncated raw data for debugging
+		debugStr := rawStr
+		if len(debugStr) > MaxJSONDebugLength {
+			debugStr = debugStr[:MaxJSONDebugLength] + "..."
+		}
+		e.log.Debug("Failed to parse nutriments JSON array",
+			"error", err,
+			"raw", debugStr,
+			"converted", jsonStr[:min(MaxJSONDebugLength, len(jsonStr))])
 		return make(map[string]interface{}) // Use empty map on parse error
 	}
 
 	// Convert array to map keyed by nutrient name
 	nutrientsMap := make(map[string]interface{})
 	for _, nutrient := range nutrimentsArray {
-		if name, ok := nutrient["name"].(string); ok {
+		if name, ok := nutrient["name"].(string); ok && name != "" {
 			nutrientsMap[name] = nutrient
 		}
 	}

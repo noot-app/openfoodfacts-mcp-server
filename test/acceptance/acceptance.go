@@ -90,13 +90,6 @@ func main() {
 	fmt.Printf("💡 Your MCP server is production-ready with simple API key authentication.\n")
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func testHealth() error {
 	resp, err := http.Get(serverURL + "/health")
 	if err != nil {
