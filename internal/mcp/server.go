@@ -63,6 +63,11 @@ func registerTools(server *mcp.Server, tools *Tools) {
 	mcp.AddTool(server, barcodeTool, tools.SearchByBarcode)
 }
 
+// GetMCPServer returns the underlying MCP server for stdio mode
+func (s *Server) GetMCPServer() *mcp.Server {
+	return s.mcpServer
+}
+
 // CreateHandler creates an HTTP handler for the MCP server with API key authentication
 func (s *Server) CreateHandler() http.Handler {
 	// Create MCP handler

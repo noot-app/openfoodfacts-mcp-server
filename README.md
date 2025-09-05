@@ -28,10 +28,11 @@ Add this to your Claude Desktop MCP settings (`~/Library/Application Support/Cla
   "mcpServers": {
     "openfoodfacts": {
       "command": "/path/to/openfoodfacts-mcp-server",
+      "args": ["--stdio"],
       "env": {
         "OPENFOODFACTS_MCP_TOKEN": "your-secret-token",
         "DATA_DIR": "/full/path/to/openfoodfacts-mcp-server/data",
-        "PORT": "8080"
+        "ENV": "development"
       }
     }
   }
@@ -46,7 +47,7 @@ Restart Claude Desktop. The server will automatically download the dataset on fi
 
 ### Environment Variables
 
-For production deployment, configure these environment variables:
+For production deployment (HTTP mode), configure these environment variables:
 
 ```bash
 # Required: Authentication
@@ -61,6 +62,16 @@ REFRESH_INTERVAL_HOURS=24
 PORT=8080
 ENV=production
 ```
+
+### Running in HTTP Mode
+
+For remote deployment, run without the `--stdio` flag:
+
+```bash
+./openfoodfacts-mcp-server
+```
+
+This will start an HTTP server on the configured port (default 8080).
 
 ### Claude Desktop Remote Setup
 
