@@ -42,12 +42,44 @@ func (e *Engine) Close() error {
 
 // SearchProducts searches for products by name and brand
 func (e *Engine) SearchProducts(ctx context.Context, name, brand string, limit int) ([]Product, error) {
-	start := time.Now()
-	e.log.Debug("SearchProducts starting", "name", name, "brand", brand, "limit", limit)
+	totalStart := time.Now()
+	e.log.Info("SearchProducts starting", "name", name, "brand", brand, "limit", limit, "parquet_path", e.parquetPath)
 
-	// Build the query with proper handling of complex types
-	// Extract the English text from product_name struct array and convert brands to string
-	query := `
+	// Build optimized query with pre-computed text extraction
+	// Use simpler approach to avoid nested operations in WHERE clause
+	var query string
+	args := []interface{}{e.parquetPath}
+
+	queryBuildStart := time.Now()
+
+	if name != "" && brand != "" {
+		// Most specific case - use CTE to pre-compute text fields once
+		query = `
+		WITH extracted AS (
+			SELECT 
+				code,
+				COALESCE(
+					(SELECT list_extract(list_filter(product_name, x -> x.lang = 'en'), 1).text),
+					CAST(product_name AS VARCHAR)
+				) as product_name_text,
+				CAST(brands AS VARCHAR) as brands_text,
+				CAST(nutriments AS VARCHAR) as nutriments_json,
+				link,
+				CAST(ingredients AS VARCHAR) as ingredients_json
+			FROM read_parquet(?)
+			WHERE CAST(brands AS VARCHAR) ILIKE ?
+		)
+		SELECT * FROM extracted 
+		WHERE product_name_text ILIKE ?
+		LIMIT ?`
+
+		brandPattern := fmt.Sprintf("%%%s%%", brand)
+		namePattern := fmt.Sprintf("%%%s%%", name)
+		args = append(args, brandPattern, namePattern, limit)
+
+	} else if brand != "" {
+		// Brand only - much simpler and faster
+		query = `
 		SELECT 
 			code, 
 			COALESCE(
@@ -59,39 +91,73 @@ func (e *Engine) SearchProducts(ctx context.Context, name, brand string, limit i
 			link,
 			CAST(ingredients AS VARCHAR) as ingredients_json
 		FROM read_parquet(?)
-		WHERE 1=1`
+		WHERE CAST(brands AS VARCHAR) ILIKE ?
+		LIMIT ?`
 
-	args := []interface{}{e.parquetPath}
+		brandPattern := fmt.Sprintf("%%%s%%", brand)
+		args = append(args, brandPattern, limit)
 
-	if name != "" {
-		query += ` AND (
+	} else if name != "" {
+		// Name only
+		query = `
+		SELECT 
+			code, 
 			COALESCE(
 				(SELECT list_extract(list_filter(product_name, x -> x.lang = 'en'), 1).text),
 				CAST(product_name AS VARCHAR)
-			) ILIKE ? OR
-			CAST(product_name AS VARCHAR) ILIKE ?
-		)`
-		searchPattern := fmt.Sprintf("%%%s%%", name)
-		args = append(args, searchPattern, searchPattern)
+			) as product_name_text,
+			CAST(brands AS VARCHAR) as brands_text,
+			CAST(nutriments AS VARCHAR) as nutriments_json,
+			link,
+			CAST(ingredients AS VARCHAR) as ingredients_json
+		FROM read_parquet(?)
+		WHERE COALESCE(
+			(SELECT list_extract(list_filter(product_name, x -> x.lang = 'en'), 1).text),
+			CAST(product_name AS VARCHAR)
+		) ILIKE ?
+		LIMIT ?`
+
+		namePattern := fmt.Sprintf("%%%s%%", name)
+		args = append(args, namePattern, limit)
+
+	} else {
+		// No filters - simple select
+		query = `
+		SELECT 
+			code, 
+			COALESCE(
+				(SELECT list_extract(list_filter(product_name, x -> x.lang = 'en'), 1).text),
+				CAST(product_name AS VARCHAR)
+			) as product_name_text,
+			CAST(brands AS VARCHAR) as brands_text,
+			CAST(nutriments AS VARCHAR) as nutriments_json,
+			link,
+			CAST(ingredients AS VARCHAR) as ingredients_json
+		FROM read_parquet(?)
+		LIMIT ?`
+
+		args = append(args, limit)
 	}
 
-	if brand != "" {
-		query += ` AND CAST(brands AS VARCHAR) ILIKE ?`
-		args = append(args, fmt.Sprintf("%%%s%%", brand))
-	}
+	e.log.Info("Query built", "duration", time.Since(queryBuildStart), "sql_length", len(query))
 
-	query += ` LIMIT ?`
-	args = append(args, limit)
-
+	queryStart := time.Now()
+	e.log.Info("Executing DuckDB query", "query", query)
 	rows, err := e.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		e.log.Error("DuckDB query failed", "error", err, "duration", time.Since(start))
+		e.log.Error("DuckDB query failed", "error", err, "duration", time.Since(queryStart))
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
 	defer rows.Close()
 
+	e.log.Info("Query executed", "duration", time.Since(queryStart))
+
+	scanStart := time.Now()
+	rowCount := 0
+
 	var results []Product
 	for rows.Next() {
+		rowCount++
 		var p Product
 		var nutrimentsStr sql.NullString
 		var ingredientsStr sql.NullString
@@ -150,8 +216,10 @@ func (e *Engine) SearchProducts(ctx context.Context, name, brand string, limit i
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	duration := time.Since(start)
-	e.log.Info("SearchProducts completed", "count", len(results), "duration", duration)
+	e.log.Info("Row scanning completed", "rows_scanned", rowCount, "scan_duration", time.Since(scanStart))
+
+	totalDuration := time.Since(totalStart)
+	e.log.Info("SearchProducts completed", "count", len(results), "total_duration", totalDuration)
 	return results, nil
 }
 
