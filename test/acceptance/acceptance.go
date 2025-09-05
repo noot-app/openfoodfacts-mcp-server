@@ -117,7 +117,7 @@ func testMCPWithoutAuth() error {
 		ID:      1,
 		Method:  "initialize",
 		Params: InitializeParams{
-			ProtocolVersion: "2024-11-05",
+			ProtocolVersion: "2025-06-18",
 			Capabilities:    map[string]interface{}{},
 			ClientInfo: map[string]string{
 				"name":    "test-client",
@@ -150,7 +150,7 @@ func testMCPWithWrongAuth() error {
 		ID:      1,
 		Method:  "initialize",
 		Params: InitializeParams{
-			ProtocolVersion: "2024-11-05",
+			ProtocolVersion: "2025-06-18",
 			Capabilities:    map[string]interface{}{},
 			ClientInfo: map[string]string{
 				"name":    "test-client",
@@ -184,7 +184,7 @@ func testMCPWithCorrectAuth() error {
 		ID:      1,
 		Method:  "initialize",
 		Params: InitializeParams{
-			ProtocolVersion: "2024-11-05",
+			ProtocolVersion: "2025-06-18",
 			Capabilities:    map[string]interface{}{},
 			ClientInfo: map[string]string{
 				"name":    "test-client",
@@ -415,7 +415,7 @@ func initializeMCPSession() (string, error) {
 		ID:      1,
 		Method:  "initialize",
 		Params: InitializeParams{
-			ProtocolVersion: "2024-11-05",
+			ProtocolVersion: "2025-06-18",
 			Capabilities:    map[string]interface{}{},
 			ClientInfo: map[string]string{
 				"name":    "test-client",
