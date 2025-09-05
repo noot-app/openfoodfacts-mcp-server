@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+
+builds:
+  - main: ./cmd/{{ .ProjectName }}
+    dir: "."
+    binary: "{{ .ProjectName }}"
+    env:
+      - CGO_ENABLED=0
+      - GOPROXY=off
+      - GOSUMDB=off
+      - SOURCE_DATE_EPOCH={{ .CommitTimestamp }}
+    flags:
+      - -trimpath
+      - -mod=vendor
+      - -v
+    goos:
+      - linux
+      - darwin
+      # - windows
+      # - freebsd
+    ldflags:
+      - -s -w -X {{ .ModulePath }}/internal/version.tag={{.Tag}} -X {{ .ModulePath }}/internal/version.commit={{.FullCommit}} -X {{ .ModulePath }}/internal/version.buildTime={{.CommitDate}}
+
+archives:
+  - formats: binary
+    name_template: "{{ .ProjectName }}_{{.Tag}}_{{ .Os }}-{{ .Arch }}"
+
+# snapshots are used for testing and development purposes
+# build snapshots with `goreleaser build --snapshot --clean`
+snapshot:
+  version_template: "{{ .Version }}-dev-{{.ShortCommit}}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  use: github-native
+
+report_sizes: true
+
+release:
+  draft: false
+  include_meta: true
+
+dist: "./dist"

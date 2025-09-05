@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source script/env "$@"
+
+echo -e "${BLUE}🥾 Bootstrapping...${OFF}"
+
+# Install goreleaser only if --install-goreleaser flag is provided
+if [[ " $* " == *" --install-goreleaser "* ]]; then
+  if ! command -v goreleaser &> /dev/null; then
+    GORELEASER_VERSION=$(cat .goreleaser-version)
+    echo "GORELEASER_VERSION=${GORELEASER_VERSION}" >> $GITHUB_OUTPUT
+    echo "Using goreleaser version ${GORELEASER_VERSION}"      
+    sudo dpkg -i vendor_bin/goreleaser_${GORELEASER_VERSION}_amd64.deb
+  else
+    echo -e "${GREEN}✅ goreleaser already installed${OFF}"
+  fi
+fi
+
+# Hermetic check: ensure all imports resolve from vendor/ only
+# This avoids touching the network or the module cache.
+go list -mod=vendor -deps ./... > /dev/null
+
+echo -e "${GREEN}✅ Bootstrap complete!${OFF}"

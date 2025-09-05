@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source script/env "$@"
+
+count=3
+
+go test -mod=vendor -race -count $count -v -cover -coverprofile=coverage.out ./...

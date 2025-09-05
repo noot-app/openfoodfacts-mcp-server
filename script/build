@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+# Build script for the Go CLI application
+#
+# Usage:
+#   script/build [flags]          - Build binaries using goreleaser build (snapshot mode)
+#   script/build --release [flags] - Release binaries using goreleaser release
+#
+# The --release flag enables release mode, which:
+#   - Sets BUILD_RELEASE_MODE=1 environment variable
+#   - Uses 'goreleaser release' instead of 'goreleaser build'
+#   - Removes the --release flag before passing args to goreleaser
+#
+# All other flags are passed through to the underlying goreleaser command.
+
+set -euo pipefail
+
+# Check if --release flag is present and handle it
+RELEASE_MODE=false
+FILTERED_ARGS=()
+
+for arg in "$@"; do
+  if [[ "$arg" == "--release" ]]; then
+    RELEASE_MODE=true
+    export BUILD_RELEASE_MODE=1
+  else
+    FILTERED_ARGS+=("$arg")
+  fi
+done
+
+source script/env "${FILTERED_ARGS[@]}"
+
+# Get build information for embedding into binary
+COMMIT_SHA="$(git rev-parse HEAD)"
+BUILD_TIME="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+#go build -mod=vendor -ldflags "-X ${PROJECT_MODULE_PATH}/internal/version.commit=${COMMIT_SHA} -X ${PROJECT_MODULE_PATH}/internal/version.buildTime=${BUILD_TIME}" -v ./cmd/go-template
+
+goreleaser check
+
+if [[ "$RELEASE_MODE" == "true" ]]; then
+  # Release mode: use goreleaser release
+  goreleaser release --clean "${FILTERED_ARGS[@]}"
+else
+  # Build mode: use goreleaser build with snapshot
+  goreleaser build --snapshot --clean "${FILTERED_ARGS[@]}"
+fi
