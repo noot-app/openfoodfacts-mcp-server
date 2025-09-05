@@ -11,8 +11,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
+
+// HFResponse represents the HuggingFace API response for parquet file discovery
+type HFResponse struct {
+	Default map[string][]string `json:"default"`
+}
 
 // Metadata holds information about the downloaded dataset
 type Metadata struct {
@@ -42,7 +48,19 @@ func NewManager(parquetURL, parquetPath, metadataPath, lockPath string, logger *
 	}
 }
 
-// EnsureDataset ensures the dataset is available and up-to-date
+// discoverDownloadURL discovers the actual download URL from HuggingFace API
+func (m *Manager) discoverDownloadURL(ctx context.Context) (string, error) {
+	// If the URL doesn't look like a HuggingFace dataset URL, use it directly
+	if !strings.Contains(m.parquetURL, "huggingface.co/datasets/") {
+		return m.parquetURL, nil
+	}
+
+	// For OpenFoodFacts, we know the structure - use the direct food.parquet file
+	downloadURL := "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/food.parquet"
+
+	m.log.Debug("Using direct download URL for OpenFoodFacts dataset", "download_url", downloadURL)
+	return downloadURL, nil
+} // EnsureDataset ensures the dataset is available and up-to-date
 func (m *Manager) EnsureDataset(ctx context.Context) error {
 	start := time.Now()
 	m.log.Info("Ensuring dataset is available", "parquet_path", m.parquetPath)
@@ -104,9 +122,16 @@ func (m *Manager) isUpToDate(ctx context.Context) (bool, error) {
 // getRemoteMetadata fetches metadata from the remote URL using HEAD request
 func (m *Manager) getRemoteMetadata(ctx context.Context) (*Metadata, error) {
 	start := time.Now()
-	m.log.Debug("Fetching remote metadata", "url", m.parquetURL)
 
-	req, err := http.NewRequestWithContext(ctx, "HEAD", m.parquetURL, nil)
+	// Discover the actual download URL
+	downloadURL, err := m.discoverDownloadURL(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover download URL: %w", err)
+	}
+
+	m.log.Debug("Fetching remote metadata", "url", downloadURL)
+
+	req, err := http.NewRequestWithContext(ctx, "HEAD", downloadURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -203,9 +228,16 @@ func (m *Manager) downloadWithLock(ctx context.Context) error {
 // downloadFile downloads the file from the remote URL
 func (m *Manager) downloadFile(ctx context.Context, filePath string) error {
 	start := time.Now()
-	m.log.Info("Downloading dataset", "url", m.parquetURL, "path", filePath)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", m.parquetURL, nil)
+	// Discover the actual download URL
+	downloadURL, err := m.discoverDownloadURL(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to discover download URL: %w", err)
+	}
+
+	m.log.Info("Downloading dataset", "url", downloadURL, "path", filePath)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", downloadURL, nil)
 	if err != nil {
 		return err
 	}
@@ -286,6 +318,11 @@ func (m *Manager) saveMetadata(meta *Metadata) error {
 
 // acquireLock attempts to acquire an exclusive lock
 func acquireLock(lockPath string) (*os.File, error) {
+	// Ensure the directory exists for the lock file
+	if err := os.MkdirAll(filepath.Dir(lockPath), 0755); err != nil {
+		return nil, fmt.Errorf("failed to create lock directory: %w", err)
+	}
+
 	// O_CREATE|O_EXCL will fail if file exists
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
