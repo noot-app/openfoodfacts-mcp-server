@@ -24,7 +24,6 @@ and barcode lookups with proper authentication and JSON-RPC 2.0 support.
 Available MCP Tools:
 - search_products_by_brand_and_name: Search products by name and brand
 - search_by_barcode: Find product by barcode (UPC/EAN)
-- get_nutrition_analysis: Get nutrition insights for a product
 
 Authentication:
 Bearer token authentication is required for all MCP endpoints.

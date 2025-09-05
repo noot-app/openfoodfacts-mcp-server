@@ -61,13 +61,6 @@ func registerTools(server *mcp.Server, tools *Tools) {
 		Description: "Search for a product by its barcode (UPC/EAN)",
 	}
 	mcp.AddTool(server, barcodeTool, tools.SearchByBarcode)
-
-	// Register nutrition analysis tool
-	nutritionTool := &mcp.Tool{
-		Name:        "get_nutrition_analysis",
-		Description: "Get nutrition analysis and health insights for a product",
-	}
-	mcp.AddTool(server, nutritionTool, tools.GetNutritionAnalysis)
 }
 
 // CreateHandler creates an HTTP handler for the MCP server with API key authentication
