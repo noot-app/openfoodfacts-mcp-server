@@ -31,7 +31,8 @@ const (
 
 func main() {
 	fmt.Printf("🧪 Running acceptance tests for OpenFoodFacts MCP Server\n")
-	fmt.Printf("Expected: All queries should complete in under %v\n\n", maxDuration)
+	fmt.Printf("Expected: All queries should complete in under %v\n", maxDuration)
+	fmt.Printf("Validating: Product codes, brands, names, and ingredient data\n\n")
 
 	// Test case: Complex query (name + brand)
 	req := QueryRequest{
@@ -77,19 +78,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		// Check for expected Olipop Cream Soda products
-		foundCreamSoda := false
-		for _, product := range response.Products {
-			if productName, ok := product["product_name"].(string); ok {
-				if productName == "Cream Soda" {
-					foundCreamSoda = true
-					break
-				}
-			}
-		}
-
-		if !foundCreamSoda {
-			fmt.Printf("❌ Test %d failed: No Cream Soda product found in results\n", i)
+		// Validate expected products and data integrity
+		if err := validateExpectedData(response.Products, i); err != nil {
+			fmt.Printf("❌ Test %d failed: %v\n", i, err)
 			os.Exit(1)
 		}
 
@@ -163,4 +154,117 @@ func makeRequest(req QueryRequest) (*QueryResponse, error) {
 	}
 
 	return &response, nil
+}
+
+// validateExpectedData checks for specific expected data points in the response
+func validateExpectedData(products []map[string]interface{}, testNum int) error {
+	if len(products) == 0 {
+		return fmt.Errorf("no products returned")
+	}
+
+	// Expected product codes that should be present
+	expectedCodes := []string{
+		"0850027702186", // Cream Soda with detailed ingredients
+		"0850027702407", // Cream Soda
+		"0850027702711", // Cream Soda (Ambient)
+		"0850027702896", // Cream Soda (4 Pack)
+		"0850062639102", // Cream Soda
+	}
+
+	// Track which expected codes we found
+	foundCodes := make(map[string]bool)
+	foundCreamSoda := false
+	foundOlipopBrand := false
+	foundExpectedIngredients := false
+
+	for _, product := range products {
+		// Check product code
+		if code, ok := product["code"].(string); ok {
+			for _, expectedCode := range expectedCodes {
+				if code == expectedCode {
+					foundCodes[code] = true
+				}
+			}
+		}
+
+		// Check product name
+		if productName, ok := product["product_name"].(string); ok {
+			if productName == "Cream Soda" || productName == "Cream Soda (Ambient)" || productName == "Cream Soda (4 Pack)" {
+				foundCreamSoda = true
+			}
+		}
+
+		// Check brand
+		if brands, ok := product["brands"].(string); ok {
+			if brands == "Olipop" || brands == "OLIPOP" {
+				foundOlipopBrand = true
+			}
+		}
+
+		// Check for expected ingredients in detailed products
+		if ingredients, ok := product["ingredients"].([]interface{}); ok && len(ingredients) > 0 {
+			if hasExpectedIngredients(ingredients) {
+				foundExpectedIngredients = true
+			}
+		}
+	}
+
+	// Validate we found at least some expected data
+	if !foundCreamSoda {
+		return fmt.Errorf("no Cream Soda product found in results")
+	}
+
+	if !foundOlipopBrand {
+		return fmt.Errorf("no Olipop brand found in results")
+	}
+
+	// We should find at least 2 of the expected product codes
+	if len(foundCodes) < 2 {
+		return fmt.Errorf("expected at least 2 known product codes, found %d: %v", len(foundCodes), getFoundCodesList(foundCodes))
+	}
+
+	// At least one product should have detailed ingredients
+	if !foundExpectedIngredients {
+		return fmt.Errorf("no products with expected ingredient details found")
+	}
+
+	return nil
+}
+
+// hasExpectedIngredients checks if the ingredients contain expected Olipop ingredients
+func hasExpectedIngredients(ingredients []interface{}) bool {
+	expectedIngredientIDs := []string{
+		"en:carbonated-water",
+		"en:cassava-root-fiber",
+		"en:chicory-root-inulin",
+		"en:stevia-leaf",
+		"en:himalayan-pink-salt",
+		"en:monk-fruit",
+	}
+
+	foundCount := 0
+	for _, ingredient := range ingredients {
+		if ing, ok := ingredient.(map[string]interface{}); ok {
+			if id, ok := ing["id"].(string); ok {
+				for _, expectedID := range expectedIngredientIDs {
+					if id == expectedID {
+						foundCount++
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// Should find at least 3 expected ingredients
+	return foundCount >= 3
+}
+
+// getFoundCodesList returns a list of found codes for error reporting
+func getFoundCodesList(foundCodes map[string]bool) []string {
+	var codes []string
+	for code := range foundCodes {
+		codes = append(codes, code)
+	}
+	return codes
 }
