@@ -56,10 +56,10 @@ AUTH_TOKEN=your-secret-token
 
 # Dataset Configuration
 PARQUET_URL=https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet
-DATA_DIR=/data/off
-PARQUET_PATH=/data/off/product-database.parquet
-METADATA_PATH=/data/off/metadata.json
-LOCK_FILE=/data/off/refresh.lock
+DATA_DIR=./data
+PARQUET_PATH=./data/product-database.parquet
+METADATA_PATH=./data/metadata.json
+LOCK_FILE=./data/refresh.lock
 
 # Refresh Behavior
 REFRESH_INTERVAL_HOURS=24  # 0 to disable periodic refresh
@@ -124,7 +124,7 @@ script/build --single-target
 
 1. Create a new Railway project
 2. Connect your GitHub repository
-3. Add a persistent volume mounted to `/data/off`
+3. Add a persistent volume mounted to `./data`
 
 ### 2. Environment Variables
 
@@ -132,7 +132,7 @@ Set the following environment variables in Railway:
 
 ```bash
 AUTH_TOKEN=your-production-secret-token
-DATA_DIR=/data/off
+DATA_DIR=./data
 REFRESH_INTERVAL_HOURS=24
 PORT=8080
 RAILWAY_RUN_UID=0  # Required for volume permissions
@@ -140,7 +140,7 @@ RAILWAY_RUN_UID=0  # Required for volume permissions
 
 ### 3. Volume Configuration
 
-- **Mount Path**: `/data/off`
+- **Mount Path**: `./data`
 - **Size**: At least 5GB (dataset is ~3GB)
 - **Backup**: Recommended for production
 

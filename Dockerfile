@@ -31,7 +31,7 @@ WORKDIR /app
 COPY --from=builder /app/openfoodfacts-mcp-server .
 
 # Create data directory and set permissions
-RUN mkdir -p /data/off && chown -R appuser:appuser /data/off
+RUN mkdir -p ./data && chown -R appuser:appuser ./data
 
 # Switch to non-root user
 USER appuser
@@ -40,7 +40,7 @@ USER appuser
 EXPOSE 8080
 
 # Set default environment variables
-ENV DATA_DIR=/data/off
+ENV DATA_DIR=./data
 ENV PORT=8080
 ENV PARQUET_URL=https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet
 ENV REFRESH_INTERVAL_HOURS=24

@@ -28,7 +28,7 @@ type Config struct {
 
 // Load reads configuration from environment variables
 func Load() *Config {
-	dataDir := getEnv("DATA_DIR", "/data/off")
+	dataDir := getEnv("DATA_DIR", "./data")
 
 	refreshHours := 24
 	if h := os.Getenv("REFRESH_INTERVAL_HOURS"); h != "" {
