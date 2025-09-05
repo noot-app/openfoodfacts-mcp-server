@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -11,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
-	"github.com/noot-app/openfoodfacts-mcp-server/internal/query"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -293,29 +291,4 @@ func TestQueryRequest_LimitHandling(t *testing.T) {
 			assert.Equal(t, tt.expectedLimit, limit)
 		})
 	}
-}
-
-// Mock for testing query responses
-type mockQueryEngine struct {
-	products []query.Product
-	err      error
-}
-
-func (m *mockQueryEngine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]query.Product, error) {
-	return m.products, m.err
-}
-
-func (m *mockQueryEngine) SearchByBarcode(ctx context.Context, barcode string) (*query.Product, error) {
-	if len(m.products) > 0 {
-		return &m.products[0], nil
-	}
-	return nil, m.err
-}
-
-func (m *mockQueryEngine) TestConnection(ctx context.Context) error {
-	return m.err
-}
-
-func (m *mockQueryEngine) Close() error {
-	return nil
 }
