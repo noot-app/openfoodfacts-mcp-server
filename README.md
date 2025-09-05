@@ -15,6 +15,7 @@ A high-performance MCP (Model Context Protocol) server that provides access to t
 ## API Endpoints
 
 ### Health Check
+
 ```bash
 GET /health
 ```
@@ -22,6 +23,7 @@ GET /health
 Returns server status and readiness.
 
 ### Product Search
+
 ```bash
 POST /query
 Authorization: Bearer <AUTH_TOKEN>
@@ -35,6 +37,7 @@ Content-Type: application/json
 ```
 
 Search by barcode:
+
 ```bash
 POST /query
 Authorization: Bearer <AUTH_TOKEN>
@@ -214,7 +217,7 @@ curl -X POST "https://your-app.railway.app/query" \
 
 ## Architecture
 
-```
+```text
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   HTTP Client   │───▶│   MCP Server     │───▶│   DuckDB        │
 │                 │    │                  │    │                 │
@@ -262,6 +265,7 @@ The server provides structured JSON logs with the following levels:
 - `DEBUG`: Detailed debugging information
 
 Example log entry:
+
 ```json
 {
   "time": "2025-01-09T10:30:45Z",
