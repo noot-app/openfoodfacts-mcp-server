@@ -21,6 +21,20 @@ func TestNewMockEngine(t *testing.T) {
 }
 
 func TestSearchProductsByBrandAndName(t *testing.T) {
+	// Skip this test if SKIP_INTEGRATION_TESTS is set (for unit test runs)
+	if os.Getenv("SKIP_INTEGRATION_TESTS") == "true" {
+		t.Skip("Skipping integration test - set SKIP_INTEGRATION_TESTS=false to run")
+	}
+
+	// Skip if parquet file doesn't exist
+	parquetPath := os.Getenv("PARQUET_PATH")
+	if parquetPath == "" {
+		parquetPath = "data/product-database.parquet"
+	}
+	if _, err := os.Stat(parquetPath); os.IsNotExist(err) {
+		t.Skip("Skipping test - parquet file not found at", parquetPath)
+	}
+
 	tests := []struct {
 		name        string
 		brand       string

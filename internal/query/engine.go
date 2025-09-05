@@ -370,7 +370,7 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 	e.log.Debug("Row scanning completed", "rows_scanned", rowCount, "scan_duration", time.Since(scanStart))
 
 	totalDuration := time.Since(totalStart)
-	e.log.Info("SearchProductsByBrandAndName completed", "count", len(results), "total_duration", totalDuration)
+	e.log.Info("SearchProductsByBrandAndName completed", "count", len(results), "total_duration_ms", totalDuration.Milliseconds())
 	return results, nil
 }
 
