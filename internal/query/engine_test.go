@@ -9,14 +9,80 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewEngine(t *testing.T) {
+func TestNewMockEngine(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	engine, err := NewEngine("/nonexistent/path.parquet", logger)
-	assert.NoError(t, err)
+	engine := NewMockEngine(logger)
 	assert.NotNil(t, engine)
 
 	defer engine.Close()
+}
+
+func TestMockEngine_SearchProducts(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	engine := NewMockEngine(logger)
+	defer engine.Close()
+
+	ctx := context.Background()
+
+	// Test search by name
+	products, err := engine.SearchProducts(ctx, "Nutella", "", 10)
+	assert.NoError(t, err)
+	assert.Len(t, products, 1)
+	assert.Equal(t, "Nutella", products[0].ProductName)
+	assert.Equal(t, "3017620422003", products[0].Code)
+
+	// Test search by brand
+	products, err = engine.SearchProducts(ctx, "", "Ferrero", 10)
+	assert.NoError(t, err)
+	assert.Len(t, products, 2) // Both products are Ferrero
+
+	// Test combined search
+	products, err = engine.SearchProducts(ctx, "chocolate", "Ferrero", 10)
+	assert.NoError(t, err)
+	assert.Len(t, products, 1)
+	assert.Equal(t, "Test Chocolate", products[0].ProductName)
+
+	// Test limit
+	products, err = engine.SearchProducts(ctx, "", "Ferrero", 1)
+	assert.NoError(t, err)
+	assert.Len(t, products, 1)
+}
+
+func TestMockEngine_SearchByBarcode(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	engine := NewMockEngine(logger)
+	defer engine.Close()
+
+	ctx := context.Background()
+
+	// Test existing barcode
+	product, err := engine.SearchByBarcode(ctx, "3017620422003")
+	assert.NoError(t, err)
+	assert.NotNil(t, product)
+	assert.Equal(t, "Nutella", product.ProductName)
+
+	// Test non-existing barcode
+	product, err = engine.SearchByBarcode(ctx, "9999999999999")
+	assert.NoError(t, err)
+	assert.Nil(t, product)
+}
+
+func TestMockEngine_TestConnection(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	engine := NewMockEngine(logger)
+	defer engine.Close()
+
+	ctx := context.Background()
+
+	// Test successful connection
+	err := engine.TestConnection(ctx)
+	assert.NoError(t, err)
+
+	// Test connection with error
+	engine.SetError(assert.AnError)
+	err = engine.TestConnection(ctx)
+	assert.Error(t, err)
 }
 
 func TestProduct_JSONSerialization(t *testing.T) {

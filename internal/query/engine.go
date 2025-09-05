@@ -8,18 +8,8 @@ import (
 	"log/slog"
 	"time"
 
-	_ "github.com/marcboeker/go-duckdb"
+	_ "github.com/marcboeker/go-duckdb/v2"
 )
-
-// Product represents a product from the Open Food Facts dataset
-type Product struct {
-	Code        string                 `json:"code"`
-	ProductName string                 `json:"product_name"`
-	Brands      string                 `json:"brands"`
-	Nutriments  map[string]interface{} `json:"nutriments"`
-	Link        string                 `json:"link"`
-	Ingredients interface{}            `json:"ingredients"`
-}
 
 // Engine handles DuckDB queries against the parquet dataset
 type Engine struct {
@@ -27,6 +17,9 @@ type Engine struct {
 	parquetPath string
 	log         *slog.Logger
 }
+
+// Ensure Engine implements QueryEngine interface
+var _ QueryEngine = (*Engine)(nil)
 
 // NewEngine creates a new query engine
 func NewEngine(parquetPath string, logger *slog.Logger) (*Engine, error) {

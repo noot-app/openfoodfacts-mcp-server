@@ -15,6 +15,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func init() {
+	// Use mock query engine for all server tests
+	os.Setenv("QUERY_ENGINE_MOCK", "true")
+}
+
 func TestServer_HandleHealth(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -170,6 +175,11 @@ func TestServer_HandleQuery_RequestParsing(t *testing.T) {
 			logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 			server := New(cfg, logger)
+
+			// Set server as ready for tests that expect to test JSON parsing
+			if tt.expectedStatus == http.StatusBadRequest {
+				server.ready = true
+			}
 
 			req := httptest.NewRequest("POST", "/query", bytes.NewReader([]byte(tt.requestBody)))
 			req.Header.Set("Authorization", "Bearer test-token")

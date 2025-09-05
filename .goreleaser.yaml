@@ -7,7 +7,7 @@ builds:
     dir: "."
     binary: "{{ .ProjectName }}"
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1  # Required for DuckDB C bindings
       - GOPROXY=off
       - GOSUMDB=off
       - SOURCE_DATE_EPOCH={{ .CommitTimestamp }}

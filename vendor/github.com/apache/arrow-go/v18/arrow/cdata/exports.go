@@ -28,8 +28,8 @@ import (
 
 // #include <stdlib.h>
 // #include <errno.h>
-// #include "arrow/c/abi.h"
-// #include "arrow/c/helpers.h"
+// #include "abi.h"
+// #include "helpers.h"
 //
 // typedef const char cchar_t;
 // extern int streamGetSchema(struct ArrowArrayStream*, struct ArrowSchema*);
@@ -308,7 +308,7 @@ func asyncProducerCancel(producer *CArrowAsyncProducer) {
 //export asyncTaskExtract
 func asyncTaskExtract(task *CArrowAsyncTask, out *CArrowDeviceArray) C.int {
 	h := getHandle(task.private_data)
-	rec := h.Value().(arrow.Record)
+	rec := h.Value().(arrow.RecordBatch)
 	defer rec.Release()
 
 	out.device_id, out.device_type = C.int64_t(-1), C.ARROW_DEVICE_CPU

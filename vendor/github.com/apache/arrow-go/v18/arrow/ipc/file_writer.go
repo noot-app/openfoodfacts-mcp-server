@@ -203,6 +203,12 @@ func (p *Payload) SerializeBody(w io.Writer) error {
 	return nil
 }
 
+// WritePayload serializes the payload in IPC format
+// into the provided writer.
+func (p *Payload) WritePayload(w io.Writer) (int, error) {
+	return writeIPCPayload(w, *p)
+}
+
 func (p *Payload) Release() {
 	if p.meta != nil {
 		p.meta.Release()
@@ -290,7 +296,7 @@ func (f *FileWriter) Close() error {
 	return nil
 }
 
-func (f *FileWriter) Write(rec arrow.Record) error {
+func (f *FileWriter) Write(rec arrow.RecordBatch) error {
 	schema := rec.Schema()
 	if schema == nil || !schema.Equal(f.schema) {
 		return errInconsistentSchema

@@ -21,8 +21,8 @@ package cdata
 
 // implement handling of the Arrow C Data Interface. At least from a consuming side.
 
-// #include "arrow/c/abi.h"
-// #include "arrow/c/helpers.h"
+// #include "abi.h"
+// #include "helpers.h"
 // #include <stdlib.h>
 // int stream_get_schema(struct ArrowArrayStream* st, struct ArrowSchema* out) { return st->get_schema(st, out); }
 // int stream_get_next(struct ArrowArrayStream* st, struct ArrowArray* out) { return st->get_next(st, out); }
@@ -194,7 +194,8 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 			ret.Type = &arrow.DictionaryType{
 				IndexType: ret.Type,
 				ValueType: valueField.Type,
-				Ordered:   schema.dictionary.flags&C.ARROW_FLAG_DICTIONARY_ORDERED != 0}
+				Ordered:   schema.dictionary.flags&C.ARROW_FLAG_DICTIONARY_ORDERED != 0,
+			}
 		}
 
 		return
@@ -280,9 +281,10 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 		case 'L': // large list
 			dt = arrow.LargeListOfField(childFields[0])
 		case 'v': // list view/large list view
-			if f[2] == 'l' {
+			switch f[2] {
+			case 'l':
 				dt = arrow.ListViewOfField(childFields[0])
-			} else if f[2] == 'L' {
+			case 'L':
 				dt = arrow.LargeListViewOfField(childFields[0])
 			}
 		case 'w': // fixed size list is w:# where # is the list size.
@@ -460,7 +462,7 @@ func (imp *cimporter) doImportArr(src *CArrowArray) error {
 	// struct immediately after import, since we have no imported
 	// memory that we have to track the lifetime of.
 	defer func() {
-		if imp.alloc.bufCount == 0 {
+		if imp.alloc.bufCount.Load() == 0 {
 			C.ArrowArrayRelease(imp.arr)
 			C.free(unsafe.Pointer(imp.arr))
 		}
@@ -662,9 +664,7 @@ func (imp *cimporter) importStringLike(offsetByteWidth int64) (err error) {
 		return
 	}
 
-	var (
-		nulls, offsets, values *memory.Buffer
-	)
+	var nulls, offsets, values *memory.Buffer
 	if nulls, err = imp.importNullBitmap(0); err != nil {
 		return
 	}
@@ -950,7 +950,7 @@ type nativeCRecordBatchReader struct {
 	arr    *CArrowArray
 	schema *arrow.Schema
 
-	cur arrow.Record
+	cur arrow.RecordBatch
 	err error
 }
 
@@ -959,15 +959,18 @@ type nativeCRecordBatchReader struct {
 func (n *nativeCRecordBatchReader) Retain()  {}
 func (n *nativeCRecordBatchReader) Release() {}
 
-func (n *nativeCRecordBatchReader) Err() error           { return n.err }
-func (n *nativeCRecordBatchReader) Record() arrow.Record { return n.cur }
+func (n *nativeCRecordBatchReader) Err() error                     { return n.err }
+func (n *nativeCRecordBatchReader) RecordBatch() arrow.RecordBatch { return n.cur }
+
+// Deprecated: Use [RecordBatch] instead.
+func (n *nativeCRecordBatchReader) Record() arrow.Record { return n.RecordBatch() }
 
 func (n *nativeCRecordBatchReader) Next() bool {
 	err := n.next()
-	switch {
-	case err == nil:
+	switch err {
+	case nil:
 		return true
-	case err == io.EOF:
+	case io.EOF:
 		return false
 	}
 	n.err = err
@@ -1021,7 +1024,7 @@ func (n *nativeCRecordBatchReader) getError(errno int) error {
 	return fmt.Errorf("%w: %s", syscall.Errno(errno), C.GoString(C.stream_get_last_error(n.stream)))
 }
 
-func (n *nativeCRecordBatchReader) Read() (arrow.Record, error) {
+func (n *nativeCRecordBatchReader) Read() (arrow.RecordBatch, error) {
 	if err := n.next(); err != nil {
 		n.err = err
 		return nil, err
@@ -1035,4 +1038,8 @@ func releaseArr(arr *CArrowArray) {
 
 func releaseSchema(schema *CArrowSchema) {
 	C.ArrowSchemaRelease(schema)
+}
+
+func releaseStream(stream *CArrowArrayStream) {
+	C.ArrowArrayStreamRelease(stream)
 }

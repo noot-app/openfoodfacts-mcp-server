@@ -41,7 +41,7 @@ type HealthResponse struct {
 type Server struct {
 	config      *config.Config
 	dataManager *dataset.Manager
-	queryEngine *query.Engine
+	queryEngine query.QueryEngine
 	log         *slog.Logger
 	ready       bool
 }
@@ -131,7 +131,7 @@ func (s *Server) initialize(ctx context.Context) error {
 	}
 
 	// Initialize query engine
-	engine, err := query.NewEngine(s.config.ParquetPath, s.log)
+	engine, err := query.NewQueryEngine(s.config.ParquetPath, s.log)
 	if err != nil {
 		return fmt.Errorf("failed to create query engine: %w", err)
 	}
