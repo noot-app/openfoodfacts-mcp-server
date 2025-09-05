@@ -1,27 +1,36 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
-)
+	"context"
+	"log/slog"
+	"os"
 
-var (
-	name string
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/server"
+	"github.com/spf13/cobra"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "go-template",
-	Short: "A simple CLI template built with Cobra",
-	Long: `A simple CLI template built with Cobra.
+	Use:   "openfoodfacts-mcp-server",
+	Short: "OpenFoodFacts MCP Server with DuckDB",
+	Long: `OpenFoodFacts MCP Server provides access to the Open Food Facts dataset
+via a remote MCP server using DuckDB for fast queries.
 
-This is a template project for building CLI applications in Go using the Cobra library.
-You can use this as a starting point for your own CLI applications.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if name != "" {
-			cmd.Printf("Hello %s!\n", name)
-		} else {
-			cmd.Printf("Hello World!\n")
-		}
+The server downloads and caches the Open Food Facts Parquet dataset
+and provides HTTP endpoints for product searches by name, brand, and barcode.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Setup structured logging
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+
+		// Load configuration
+		cfg := config.Load()
+
+		// Create and start server
+		srv := server.New(cfg, logger)
+		return srv.Start(context.Background())
 	},
 }
 
@@ -29,11 +38,6 @@ You can use this as a starting point for your own CLI applications.`,
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() error {
 	return rootCmd.Execute()
-}
-
-func init() {
-	// Define flags
-	rootCmd.Flags().StringVarP(&name, "name", "n", "", "Name to greet (optional)")
 }
 
 // Run is the main entry point for the CLI application

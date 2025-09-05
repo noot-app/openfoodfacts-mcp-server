@@ -7,6 +7,7 @@
 *.dll
 *.so
 *.dylib
+bin/
 
 # Test binary, built with `go test -c`
 *.test
@@ -20,13 +21,44 @@
 # Go workspace file
 go.work
 
+# Build and distribution
 dist/
 coverage
 coverage.html
 
+# Temporary files
 tmp/
 
+# Secrets
 *.secret
 
+# Binary executables
 /openfoodfacts-mcp-server
 /openfoodfacts-mcp-server.exe
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Data directories and datasets
+data/
+*.parquet
+*.duckdb
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Railway files
+.railway/
+
+# Docker files
+.dockerignore

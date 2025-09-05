@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  openfoodfacts-mcp-server:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - AUTH_TOKEN=dev-secret-token
+      - DATA_DIR=/data/off
+      - REFRESH_INTERVAL_HOURS=0
+      - PORT=8080
+    volumes:
+      - ./data:/data/off
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
