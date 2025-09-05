@@ -1,6 +1,26 @@
 # OpenFoodFacts MCP Server 🥘
 
-A high-performance MCP (Model Context Protocol) server that provides access to the Open Food Facts dataset using DuckDB and parquet for fast queries. Designed for both local development and remote deployment with authentication.
+A high-performance MCP (Model Context Protocol) server that provides access to the Open Food Facts dataset using DuckDB and parquet for fast queries. Supports both local Claude Desktop integration and remote deployment with authentication.
+
+## Two Ways to Run
+
+This MCP server can operate in two distinct modes:
+
+### 1. **STDIO Mode** (Local Claude Desktop Integration)
+
+- **Use case**: Local development and Claude Desktop integration
+- **Command**: `./openfoodfacts-mcp-server --stdio`
+- **Transport**: stdio pipes
+- **Authentication**: None required
+- **Perfect for**: Claude Desktop, local development, testing
+
+### 2. **HTTP Mode** (Remote Deployment)
+
+- **Use case**: Remote MCP server accessible over the internet
+- **Command**: `./openfoodfacts-mcp-server` (default mode)
+- **Transport**: HTTP with JSON-RPC 2.0
+- **Authentication**: Bearer token required (except `/health` endpoint)
+- **Perfect for**: Shared deployments, cloud hosting, team access
 
 ## How It Works
 
@@ -11,7 +31,9 @@ This MCP server downloads and caches the Open Food Facts Parquet dataset locally
 
 The server automatically manages dataset updates, uses file locking for concurrent safety, and provides structured JSON logging.
 
-## Local Setup for Claude Desktop
+## Local Setup for Claude Desktop (STDIO Mode)
+
+This setup uses **STDIO mode** for local Claude Desktop integration.
 
 ### 1. Build the Server
 
@@ -43,7 +65,9 @@ Add this to your Claude Desktop MCP settings (`~/Library/Application Support/Cla
 
 Restart Claude Desktop. The server will automatically download the dataset on first run and be ready for food product queries.
 
-## Remote Deployment Configuration
+## Remote Deployment (HTTP Mode)
+
+This setup uses **HTTP mode** for remote deployment with authentication.
 
 ### Environment Variables
 
@@ -65,13 +89,16 @@ ENV=production
 
 ### Running in HTTP Mode
 
-For remote deployment, run without the `--stdio` flag:
+For remote deployment, run **without** the `--stdio` flag (HTTP mode is the default):
 
 ```bash
 ./openfoodfacts-mcp-server
 ```
 
-This will start an HTTP server on the configured port (default 8080).
+This will start an HTTP server on the configured port (default 8080) with:
+
+- `/health` endpoint (no authentication required)
+- `/mcp` endpoint (Bearer token authentication required)
 
 ### Claude Desktop Remote Setup
 
@@ -91,3 +118,28 @@ For remote MCP server, update your Claude Desktop config:
   }
 }
 ```
+
+## Quick Reference
+
+### Command Options
+
+| Mode | Command | Use Case | Authentication | Transport |
+|------|---------|----------|----------------|-----------|
+| **STDIO** | `./openfoodfacts-mcp-server --stdio` | Claude Desktop, local development | None | stdio pipes |
+| **HTTP** | `./openfoodfacts-mcp-server` | Remote deployment, shared access | Bearer token | HTTP/JSON-RPC |
+
+### Environment Variables Reference
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENFOODFACTS_MCP_TOKEN` | Yes (HTTP mode) | - | Bearer token for authentication |
+| `DATA_DIR` | No | `./data` | Directory for dataset storage |
+| `PORT` | No | `8080` | HTTP server port (HTTP mode only) |
+| `ENV` | No | `production` | Environment (development/production) |
+
+### HTTP Endpoints (HTTP Mode Only)
+
+| Endpoint | Authentication | Description |
+|----------|----------------|-------------|
+| `/health` | None | Health check endpoint |
+| `/mcp` | Bearer token | MCP JSON-RPC 2.0 endpoint |

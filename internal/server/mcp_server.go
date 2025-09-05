@@ -46,7 +46,12 @@ func NewMCPServer(cfg *config.Config, logger *slog.Logger) *MCPServer {
 
 // Start starts the MCP server and background processes
 func (s *MCPServer) Start(ctx context.Context) error {
-	s.log.Info("Starting OpenFoodFacts MCP Server", "port", s.config.Port)
+	s.log.Info("🚀 Initializing OpenFoodFacts MCP Server (HTTP Mode)",
+		"mode", "http",
+		"port", s.config.Port,
+		"auth_required", "yes (Bearer token)",
+		"health_endpoint", "/health (no auth required)",
+		"mcp_endpoint", "/mcp (auth required)")
 
 	// Initialize dataset and query engine
 	if err := s.initialize(ctx); err != nil {
@@ -81,7 +86,13 @@ func (s *MCPServer) Start(ctx context.Context) error {
 
 	// Start server in goroutine
 	go func() {
-		s.log.Info("MCP server listening", "addr", server.Addr)
+		s.log.Info("🌐 MCP HTTP server ready for remote connections",
+			"addr", server.Addr,
+			"mode", "http",
+			"endpoints", map[string]string{
+				"/health": "health check (no auth)",
+				"/mcp":    "MCP JSON-RPC 2.0 (auth required)",
+			})
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			s.log.Error("HTTP server error", "error", err)
 		}

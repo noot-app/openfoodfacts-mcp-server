@@ -21,16 +21,28 @@ var rootCmd = &cobra.Command{
 	Long: `OpenFoodFacts MCP Server provides access to the Open Food Facts dataset
 via a remote MCP server using DuckDB for fast queries.
 
+The server operates in two modes:
+
+1. STDIO Mode (--stdio): For local Claude Desktop integration
+   - Uses stdio pipes for communication
+   - No authentication required
+   - Perfect for local development and Claude Desktop
+
+2. HTTP Mode (default): For remote deployment over the internet
+   - Exposes HTTP endpoints with JSON-RPC 2.0
+   - Requires Bearer token authentication (except /health)
+   - Ideal for shared/remote MCP server deployments
+
 The server downloads and caches the Open Food Facts Parquet dataset
 and provides MCP-compliant endpoints for product searches, nutrition analysis,
-and barcode lookups with proper authentication and JSON-RPC 2.0 support.
+and barcode lookups.
 
 Available MCP Tools:
 - search_products_by_brand_and_name: Search products by name and brand
 - search_by_barcode: Find product by barcode (UPC/EAN)
 
-Authentication:
-Bearer token authentication is required for all MCP endpoints.
+Authentication (HTTP Mode Only):
+Bearer token authentication is required for all MCP endpoints except /health.
 Use the OPENFOODFACTS_MCP_TOKEN environment variable to set the token.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Check if we should run in stdio mode (for Claude Desktop)
@@ -45,7 +57,7 @@ Use the OPENFOODFACTS_MCP_TOKEN environment variable to set the token.`,
 }
 
 func init() {
-	rootCmd.Flags().Bool("stdio", false, "Run in stdio mode for Claude Desktop integration")
+	rootCmd.Flags().Bool("stdio", false, "Run in stdio mode for local Claude Desktop integration (default: HTTP mode for remote deployment)")
 }
 
 // runStdioMode runs the MCP server in stdio mode for Claude Desktop
@@ -58,7 +70,11 @@ func runStdioMode(cmd *cobra.Command, args []string) error {
 	// Load configuration
 	cfg := config.Load()
 
-	logger.Info("Starting OpenFoodFacts MCP Server in stdio mode")
+	logger.Info("🔌 Starting OpenFoodFacts MCP Server in STDIO mode",
+		"mode", "stdio",
+		"description", "Local MCP server for Claude Desktop integration",
+		"auth", "not required for stdio mode",
+		"transport", "stdio pipes")
 
 	// Initialize dataset manager
 	dataManager := dataset.NewManager(
@@ -107,6 +123,13 @@ func runHTTPMode(cmd *cobra.Command, args []string) error {
 
 	// Load configuration
 	cfg := config.Load()
+
+	logger.Info("🌐 Starting OpenFoodFacts MCP Server in HTTP mode",
+		"mode", "http",
+		"description", "Remote MCP server with API key authentication",
+		"auth", "Bearer token required (except /health endpoint)",
+		"transport", "HTTP/JSON-RPC 2.0",
+		"port", cfg.Port)
 
 	// Create and start MCP server in HTTP mode
 	srv := server.NewMCPServer(cfg, logger)
