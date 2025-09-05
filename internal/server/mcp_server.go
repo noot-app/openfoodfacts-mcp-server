@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
-	"github.com/noot-app/openfoodfacts-mcp-server/internal/dataset"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/mcp"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/query"
 )
@@ -19,29 +18,22 @@ import (
 // MCPServer represents the MCP-enabled server
 type MCPServer struct {
 	config      *config.Config
-	dataManager *dataset.Manager
 	queryEngine query.QueryEngine
 	mcpServer   *mcp.Server
 	log         *slog.Logger
 	ready       bool
+	initializer *ServerInitializer
 }
 
 // NewMCPServer creates a new MCP-enabled server instance
 func NewMCPServer(cfg *config.Config, logger *slog.Logger) *MCPServer {
-	dataManager := dataset.NewManager(
-		cfg.ParquetURL,
-		cfg.ParquetPath,
-		cfg.MetadataPath,
-		cfg.LockFile,
-		cfg,
-		logger,
-	)
+	initializer := NewServerInitializer(cfg, logger)
 
 	return &MCPServer{
 		config:      cfg,
-		dataManager: dataManager,
 		log:         logger,
 		ready:       false,
+		initializer: initializer,
 	}
 }
 
@@ -80,9 +72,9 @@ func (s *MCPServer) Start(ctx context.Context) error {
 	server := &http.Server{
 		Addr:         ":" + s.config.Port,
 		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  HTTPReadTimeout,
+		WriteTimeout: HTTPWriteTimeout,
+		IdleTimeout:  HTTPIdleTimeout,
 	}
 
 	// Start server in goroutine
@@ -107,7 +99,7 @@ func (s *MCPServer) Start(ctx context.Context) error {
 	s.log.Info("Shutting down MCP server...")
 
 	// Graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), HTTPShutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
@@ -124,37 +116,15 @@ func (s *MCPServer) Start(ctx context.Context) error {
 
 // initialize sets up the dataset and query engine
 func (s *MCPServer) initialize(ctx context.Context) error {
-	start := time.Now()
-	s.log.Info("Initializing MCP server...")
-
-	// Log development mode warning
-	if s.config.IsDevelopment() {
-		s.log.Warn("🚧 DEVELOPMENT MODE ENABLED 🚧",
-			"environment", s.config.Environment,
-			"note", "Detailed error messages will be returned to clients")
-	}
-
-	// Ensure dataset is available
-	if err := s.dataManager.EnsureDataset(ctx); err != nil {
-		return fmt.Errorf("failed to ensure dataset: %w", err)
-	}
-
-	// Initialize query engine
-	engine, err := query.NewQueryEngine(s.config.ParquetPath, s.config, s.log)
+	// Use common initializer
+	engine, err := s.initializer.Initialize(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create query engine: %w", err)
+		return err
 	}
 	s.queryEngine = engine
 
-	// Test connection
-	if err := s.queryEngine.TestConnection(ctx); err != nil {
-		return fmt.Errorf("failed to test connection: %w", err)
-	}
-
 	// Mark as ready
 	s.ready = true
-
-	s.log.Info("MCP server initialized successfully", "duration", time.Since(start))
 	return nil
 }
 
@@ -173,7 +143,7 @@ func (s *MCPServer) startRefreshLoop(ctx context.Context) {
 				return
 			case <-ticker.C:
 				s.log.Info("Refreshing dataset...")
-				if err := s.dataManager.EnsureDataset(ctx); err != nil {
+				if err := s.initializer.RefreshDataset(ctx); err != nil {
 					s.log.Error("Failed to refresh dataset", "error", err)
 				} else {
 					s.log.Info("Dataset refresh completed")

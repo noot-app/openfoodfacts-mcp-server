@@ -10,6 +10,12 @@ import (
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/query"
 )
 
+// MCP tool constants
+const (
+	MaxQueryLimit     = 100
+	DefaultQueryLimit = 10
+)
+
 // Tools implements MCP tools for OpenFoodFacts product search
 type Tools struct {
 	queryEngine query.QueryEngine
@@ -45,10 +51,10 @@ func (t *Tools) SearchProductsByBrandAndName(ctx context.Context, req *mcp.CallT
 
 	// Set default limit and validate
 	if args.Limit <= 0 {
-		args.Limit = 10
+		args.Limit = DefaultQueryLimit
 	}
-	if args.Limit > 100 {
-		args.Limit = 100
+	if args.Limit > MaxQueryLimit {
+		args.Limit = MaxQueryLimit
 	}
 
 	t.log.Debug("MCP SearchProductsByBrandAndName called",

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/auth"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/query"
 )
@@ -18,6 +18,7 @@ type Server struct {
 	config      *config.Config
 	log         *slog.Logger
 	queryEngine query.QueryEngine
+	auth        *auth.BearerTokenAuth
 }
 
 // NewServer creates a new MCP server instance
@@ -43,6 +44,7 @@ func NewServer(cfg *config.Config, queryEngine query.QueryEngine, logger *slog.L
 		config:      cfg,
 		log:         logger,
 		queryEngine: queryEngine,
+		auth:        auth.NewBearerTokenAuth(cfg.AuthToken),
 	}
 }
 
@@ -77,37 +79,10 @@ func (s *Server) CreateHandler() http.Handler {
 
 	// Simple API key authentication middleware
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check for Authorization header
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			s.log.Warn("Missing Authorization header")
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			http.Error(w, "Authorization header required", http.StatusUnauthorized)
-			return
-		}
-
-		// Extract Bearer token
-		const bearerPrefix = "Bearer "
-		if !strings.HasPrefix(authHeader, bearerPrefix) {
-			s.log.Warn("Invalid Authorization header format")
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			http.Error(w, "Bearer token required", http.StatusUnauthorized)
-			return
-		}
-
-		token := strings.TrimPrefix(authHeader, bearerPrefix)
-		if token == "" {
-			s.log.Warn("Empty Bearer token")
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			http.Error(w, "Bearer token cannot be empty", http.StatusUnauthorized)
-			return
-		}
-
-		// Validate API key
-		if token != s.config.AuthToken {
-			s.log.Warn("Invalid API key provided")
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			http.Error(w, "Invalid API key", http.StatusUnauthorized)
+		if !s.auth.IsAuthorized(r) {
+			s.log.Warn("Authentication failed")
+			s.auth.SetUnauthorizedHeaders(w)
+			http.Error(w, "Authentication failed", http.StatusUnauthorized)
 			return
 		}
 
