@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source script/env "$@"
+
+echo -e "${GREEN}🧪 OpenFoodFacts MCP Server - Acceptance Tests${OFF}"
+echo
+
+# Check if server is running
+if ! curl -s -f -H "Authorization: Bearer your-secret-token" http://localhost:8080/health > /dev/null 2>&1; then
+    echo -e "${RED}❌ Server is not running on localhost:8080${OFF}"
+    echo -e "${YELLOW}💡 Please start the server first with: script/server${OFF}"
+    exit 1
+fi
+
+# Build and run the acceptance test
+go run ./test/acceptance/main.go
+
+echo
+echo -e "${GREEN}🎯 Acceptance tests completed successfully!${OFF}"
