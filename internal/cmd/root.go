@@ -93,7 +93,7 @@ func runStdioMode(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize query engine
-	queryEngine, err := query.NewQueryEngine(cfg.ParquetPath, logger)
+	queryEngine, err := query.NewQueryEngine(cfg.ParquetPath, cfg, logger)
 	if err != nil {
 		logger.Error("Failed to create query engine", "error", err)
 		return err

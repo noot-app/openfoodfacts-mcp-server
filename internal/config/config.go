@@ -42,6 +42,12 @@ type Config struct {
 
 	// Environment
 	Environment string // "development" or "production"
+
+	// DuckDB Performance Settings
+	DuckDBMemoryLimit            string // e.g. "4GB", "8GB"
+	DuckDBThreads                int    // Number of threads
+	DuckDBCheckpointThreshold    string // e.g. "1GB"
+	DuckDBPreserveInsertionOrder bool   // Allow reordering for performance
 }
 
 // IsDevelopment returns true if running in development mode
@@ -68,6 +74,21 @@ func LoadWithFileReader(fileReader FileReader) *Config {
 		}
 	}
 
+	// Parse DuckDB configuration
+	duckDBThreads := 4 // Default
+	if t := os.Getenv("DUCKDB_THREADS"); t != "" {
+		if parsed, err := strconv.Atoi(t); err == nil {
+			duckDBThreads = parsed
+		}
+	}
+
+	preserveInsertionOrder := true // Default to true for data integrity
+	if p := os.Getenv("DUCKDB_PRESERVE_INSERTION_ORDER"); p != "" {
+		if parsed, err := strconv.ParseBool(p); err == nil {
+			preserveInsertionOrder = parsed
+		}
+	}
+
 	return &Config{
 		AuthToken:            getEnv("OPENFOODFACTS_MCP_TOKEN", "super-secret-token"),
 		ParquetURL:           getEnv("PARQUET_URL", "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet"),
@@ -78,6 +99,12 @@ func LoadWithFileReader(fileReader FileReader) *Config {
 		RefreshIntervalHours: refreshHours,
 		Port:                 getEnv("PORT", "8080"),
 		Environment:          getEnv("ENV", "production"),
+
+		// DuckDB Performance Settings with sensible defaults
+		DuckDBMemoryLimit:            getEnv("DUCKDB_MEMORY_LIMIT", "4GB"),
+		DuckDBThreads:                duckDBThreads,
+		DuckDBCheckpointThreshold:    getEnv("DUCKDB_CHECKPOINT_THRESHOLD", "1GB"),
+		DuckDBPreserveInsertionOrder: preserveInsertionOrder,
 	}
 }
 

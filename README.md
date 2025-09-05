@@ -85,6 +85,12 @@ REFRESH_INTERVAL_HOURS=24
 # Optional: Server configuration  
 PORT=8080
 ENV=production
+
+# Optional: DuckDB Performance Tuning
+DUCKDB_MEMORY_LIMIT=4GB                    # Memory limit (e.g. 2GB, 4GB, 8GB, 16GB)
+DUCKDB_THREADS=4                           # Number of threads (1-16 typically)
+DUCKDB_CHECKPOINT_THRESHOLD=1GB            # When to write to disk (e.g. 512MB, 1GB, 2GB)
+DUCKDB_PRESERVE_INSERTION_ORDER=true       # Set to false for large datasets to reduce memory
 ```
 
 ### Running in HTTP Mode
@@ -136,6 +142,10 @@ For remote MCP server, update your Claude Desktop config:
 | `DATA_DIR` | No | `./data` | Directory for dataset storage |
 | `PORT` | No | `8080` | HTTP server port (HTTP mode only) |
 | `ENV` | No | `production` | Environment (development/production) |
+| `DUCKDB_MEMORY_LIMIT` | No | `4GB` | DuckDB memory limit (2GB, 4GB, 8GB, etc.) |
+| `DUCKDB_THREADS` | No | `4` | Number of DuckDB threads (1-16) |
+| `DUCKDB_CHECKPOINT_THRESHOLD` | No | `1GB` | Checkpoint threshold (512MB, 1GB, 2GB) |
+| `DUCKDB_PRESERVE_INSERTION_ORDER` | No | `true` | Preserve insertion order (false for better performance) |
 
 ### HTTP Endpoints (HTTP Mode Only)
 
@@ -143,3 +153,50 @@ For remote MCP server, update your Claude Desktop config:
 |----------|----------------|-------------|
 | `/health` | None | Health check endpoint |
 | `/mcp` | Bearer token | MCP JSON-RPC 2.0 endpoint |
+
+## DuckDB Performance Tuning
+
+This server includes comprehensive DuckDB performance optimizations based on the [official DuckDB performance guide](https://duckdb.org/docs/stable/guides/performance/overview). You can tune performance using environment variables:
+
+### Memory Configuration
+
+- **`DUCKDB_MEMORY_LIMIT`**: Set based on available system memory
+  - Small systems: `2GB` or `4GB`
+  - Medium systems: `8GB` or `16GB`
+  - Large systems: `32GB` or higher
+  - Rule of thumb: 1-4GB per thread for aggregation workloads
+
+### Threading Configuration
+
+- **`DUCKDB_THREADS`**: Set based on CPU cores
+  - Small systems: `2-4` threads
+  - Medium systems: `4-8` threads  
+  - Large systems: `8-16` threads
+  - Avoid setting higher than your CPU core count
+
+### Performance vs Memory Trade-offs
+
+- **`DUCKDB_PRESERVE_INSERTION_ORDER=false`**: Allows DuckDB to reorder results for better memory efficiency
+- **`DUCKDB_CHECKPOINT_THRESHOLD`**: Higher values = more memory usage, but potentially better performance
+
+### Production Recommendations
+
+```bash
+# Small production server (2-4 CPU cores, 8GB RAM)
+DUCKDB_MEMORY_LIMIT=4GB
+DUCKDB_THREADS=4
+DUCKDB_CHECKPOINT_THRESHOLD=1GB
+DUCKDB_PRESERVE_INSERTION_ORDER=false
+
+# Medium production server (8 CPU cores, 16GB RAM)
+DUCKDB_MEMORY_LIMIT=8GB
+DUCKDB_THREADS=6
+DUCKDB_CHECKPOINT_THRESHOLD=2GB
+DUCKDB_PRESERVE_INSERTION_ORDER=false
+
+# Large production server (16+ CPU cores, 32GB+ RAM)
+DUCKDB_MEMORY_LIMIT=16GB
+DUCKDB_THREADS=12
+DUCKDB_CHECKPOINT_THRESHOLD=4GB
+DUCKDB_PRESERVE_INSERTION_ORDER=false
+```

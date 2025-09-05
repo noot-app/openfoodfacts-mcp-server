@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -137,7 +138,15 @@ func TestEngine_SearchByBarcode_Integration(t *testing.T) {
 func TestEngine_TestConnection_WithInvalidFile(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	engine, err := NewEngine("/nonexistent/file.parquet", logger)
+	// Create a minimal config for testing
+	cfg := &config.Config{
+		DuckDBMemoryLimit:            "1GB",
+		DuckDBThreads:                2,
+		DuckDBCheckpointThreshold:    "512MB",
+		DuckDBPreserveInsertionOrder: true,
+	}
+
+	engine, err := NewEngine("/nonexistent/file.parquet", cfg, logger)
 	assert.NoError(t, err)
 	defer engine.Close()
 

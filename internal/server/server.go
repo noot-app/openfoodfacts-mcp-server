@@ -141,7 +141,7 @@ func (s *Server) initialize(ctx context.Context) error {
 	}
 
 	// Initialize query engine
-	engine, err := query.NewQueryEngine(s.config.ParquetPath, s.log)
+	engine, err := query.NewQueryEngine(s.config.ParquetPath, s.config, s.log)
 	if err != nil {
 		return fmt.Errorf("failed to create query engine: %w", err)
 	}

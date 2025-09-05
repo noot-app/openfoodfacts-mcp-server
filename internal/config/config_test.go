@@ -48,6 +48,11 @@ func TestLoad(t *testing.T) {
 				RefreshIntervalHours: 24,
 				Port:                 "8080",
 				Environment:          "production",
+				// DuckDB defaults
+				DuckDBMemoryLimit:            "4GB",
+				DuckDBThreads:                4,
+				DuckDBCheckpointThreshold:    "1GB",
+				DuckDBPreserveInsertionOrder: true,
 			},
 		},
 		{
@@ -68,6 +73,11 @@ func TestLoad(t *testing.T) {
 				RefreshIntervalHours: 12,
 				Port:                 "3000",
 				Environment:          "production",
+				// DuckDB defaults
+				DuckDBMemoryLimit:            "4GB",
+				DuckDBThreads:                4,
+				DuckDBCheckpointThreshold:    "1GB",
+				DuckDBPreserveInsertionOrder: true,
 			},
 		},
 		{
@@ -85,6 +95,11 @@ func TestLoad(t *testing.T) {
 				RefreshIntervalHours: 0,
 				Port:                 "8080",
 				Environment:          "production",
+				// DuckDB defaults
+				DuckDBMemoryLimit:            "4GB",
+				DuckDBThreads:                4,
+				DuckDBCheckpointThreshold:    "1GB",
+				DuckDBPreserveInsertionOrder: true,
 			},
 		},
 	}
@@ -96,6 +111,9 @@ func TestLoad(t *testing.T) {
 				"OPENFOODFACTS_MCP_TOKEN", "PARQUET_URL", "DATA_DIR", "PARQUET_PATH",
 				"METADATA_PATH", "LOCK_FILE", "REFRESH_INTERVAL_HOURS",
 				"PORT", "ENV",
+				// DuckDB configuration variables
+				"DUCKDB_MEMORY_LIMIT", "DUCKDB_THREADS", "DUCKDB_CHECKPOINT_THRESHOLD",
+				"DUCKDB_PRESERVE_INSERTION_ORDER",
 			}
 
 			// Save original values
