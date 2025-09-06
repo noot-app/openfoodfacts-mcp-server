@@ -205,12 +205,18 @@ func (m *Manager) downloadWithLock(ctx context.Context) error {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	// Download to temporary file in current working directory to avoid volume constraints
+	// Download to temporary file in tmp-data directory to avoid volume constraints
+	// Use tmp-data directory relative to current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
-	tmpPath := filepath.Join(cwd, "product-database.parquet.tmp")
+	tmpDataDir := filepath.Join(cwd, "tmp-data")
+	// Ensure tmp-data directory exists
+	if err := os.MkdirAll(tmpDataDir, 0755); err != nil {
+		return fmt.Errorf("failed to create tmp-data directory: %w", err)
+	}
+	tmpPath := filepath.Join(tmpDataDir, "product-database.parquet.tmp")
 	if err := m.downloadFile(ctx, tmpPath); err != nil {
 		os.Remove(tmpPath)
 		return err

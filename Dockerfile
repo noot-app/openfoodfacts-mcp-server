@@ -48,6 +48,9 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy the binary from the builder stage and set ownership
 COPY --from=builder --chown=nonroot:nonroot /build/openfoodfacts-mcp-server /openfoodfacts-mcp-server
 
+# Create tmp-data directory for temporary downloads with proper ownership
+RUN mkdir -p /tmp-data && chown nonroot:nonroot /tmp-data
+
 # Switch to non-root user
 USER nonroot
 
