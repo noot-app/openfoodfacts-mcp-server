@@ -60,7 +60,4 @@ logs/
 # Railway files
 .railway/
 
-# Docker files
-.dockerignore
-
 ./data

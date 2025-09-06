@@ -1,0 +1,15 @@
+data/
+dist/
+.github/
+docs/
+tmp/
+LICENSE
+README.md
+vendor_bin/
+.env
+.env.*
+.vscode/
+.DS_Store
+*.log
+coverage.out
+openfoodfacts-mcp-server
