@@ -39,8 +39,8 @@ RUN VERSION_TAG="$(git describe --tags 2>/dev/null || echo 'dev')" && \
 # Runtime stage - use debian slim instead of scratch for DuckDB dependencies
 FROM debian:bookworm-slim@sha256:b1a741487078b369e78119849663d7f1a5341ef2768798f7b7406c4240f86aef
 
-# Create a non-root user
-RUN groupadd -r nonroot && useradd -r -g nonroot -s /bin/false nonroot
+# Create a non-root user with predictable UID/GID
+RUN groupadd -r -g 1001 nonroot && useradd -r -u 1001 -g nonroot -s /bin/false nonroot
 
 # Add ca-certificates
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
