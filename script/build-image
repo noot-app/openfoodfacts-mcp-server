@@ -40,7 +40,7 @@ IMAGE_SIZE=$(docker images --format "table {{.Size}}" "${IMAGE_TAG}" | tail -n 1
 echo -e "${BLUE}📏 Image size: ${IMAGE_SIZE}${OFF}"
 
 echo -e "${BLUE}To run the image:${OFF}"
-echo -e "${YELLOW}  basic: docker run --rm ${IMAGE_TAG} [your-app-arguments]${OFF}"
-echo -e "${YELLOW}  with env file: docker run --rm --env-file .env ${IMAGE_TAG} [your-app-arguments]${OFF}"
+echo -e "${YELLOW}  basic: docker run --rm -p 8080:8080 ${IMAGE_TAG} [your-app-arguments]${OFF}"
+echo -e "${YELLOW}  with env file: docker run --rm -p 8080:8080 --env-file .env ${IMAGE_TAG} [your-app-arguments]${OFF}"
 echo -e "${YELLOW}  with host network: docker run --rm --network host --env-file .env ${IMAGE_TAG} [your-app-arguments]${OFF}"
-echo -e "${YELLOW}  ⭐ with docker network: docker run --rm --network example_network_name --env-file .env ${IMAGE_TAG} [your-app-arguments]${OFF}"
+echo -e "${YELLOW}  ⭐ with docker network: docker run --rm -p 8080:8080 --network example_network_name --env-file .env ${IMAGE_TAG} [your-app-arguments]${OFF}"

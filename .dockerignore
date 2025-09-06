@@ -13,3 +13,11 @@ vendor_bin/
 *.log
 coverage.out
 openfoodfacts-mcp-server
+test/
+script/
+.golangci-lint-version
+.goreleaser-version
+.go-version
+.gitignore
+Dockerfile
+docker-compose.yml
