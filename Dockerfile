@@ -39,11 +39,17 @@ RUN VERSION_TAG="$(git describe --tags 2>/dev/null || echo 'dev')" && \
 # Runtime stage - use debian slim instead of scratch for DuckDB dependencies
 FROM debian:bookworm-slim@sha256:b1a741487078b369e78119849663d7f1a5341ef2768798f7b7406c4240f86aef
 
+# Create a non-root user
+RUN groupadd -r nonroot && useradd -r -g nonroot -s /bin/false nonroot
+
 # Add ca-certificates
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Copy the binary from the builder stage
-COPY --from=builder /build/openfoodfacts-mcp-server /openfoodfacts-mcp-server
+# Copy the binary from the builder stage and set ownership
+COPY --from=builder --chown=nonroot:nonroot /build/openfoodfacts-mcp-server /openfoodfacts-mcp-server
+
+# Switch to non-root user
+USER nonroot
 
 # Set the binary as the entrypoint
 ENTRYPOINT ["/openfoodfacts-mcp-server"]
