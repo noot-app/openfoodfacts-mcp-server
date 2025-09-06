@@ -1,8 +1,8 @@
-# OpenFoodFacts MCP Server 🥘
+# OpenFoodFacts MCP Server 🔌
 
-A high-performance MCP (Model Context Protocol) server that provides access to the Open Food Facts dataset using DuckDB and parquet for fast queries. Supports both local Claude Desktop integration and remote deployment with authentication.
+A MCP (Model Context Protocol) server that provides access to the Open Food Facts dataset using DuckDB and parquet for fast queries. Supports both local Claude Desktop integration and remote deployment with authentication.
 
-## Two Ways to Run
+## Usage 💻
 
 This MCP server can operate in two distinct modes:
 
@@ -20,9 +20,9 @@ This MCP server can operate in two distinct modes:
 - **Command**: `./openfoodfacts-mcp-server` (default mode)
 - **Transport**: HTTP with JSON-RPC 2.0
 - **Authentication**: Bearer token required (except `/health` endpoint)
-- **Perfect for**: Shared deployments, cloud hosting, team access
+- **Perfect for**: Shared deployments, cloud hosting, team access, mcp as a service
 
-## How It Works
+## How It Works 💡
 
 This MCP server downloads and caches the Open Food Facts Parquet dataset locally, then uses DuckDB for fast product searches. It provides two main tools:
 
@@ -35,13 +35,19 @@ The server automatically manages dataset updates, uses file locking for concurre
 
 This setup uses **STDIO mode** for local Claude Desktop integration.
 
-### 1. Build the Server
+### 1. Build the Binary
 
 ```bash
-script/build --single-target
+script/build --simple
 ```
 
-### 2. Configure Claude Desktop
+### 2. Fetch the Database
+
+```bash
+openfoodfacts-mcp-server --fetch-db
+```
+
+### 3. Configure Claude Desktop
 
 Add this to your Claude Desktop MCP settings (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
@@ -61,9 +67,9 @@ Add this to your Claude Desktop MCP settings (`~/Library/Application Support/Cla
 }
 ```
 
-### 3. Start Using
+### 3. Try it Out
 
-Restart Claude Desktop. The server will automatically download the dataset on first run and be ready for food product queries.
+Restart Claude Desktop. The mcp server will automatically start and be ready for food product queries.
 
 ## Remote Deployment (HTTP Mode)
 
@@ -106,25 +112,6 @@ This will start an HTTP server on the configured port (default 8080) with:
 - `/health` endpoint (no authentication required)
 - `/mcp` endpoint (Bearer token authentication required)
 
-### Claude Desktop Remote Setup
-
-For remote MCP server, update your Claude Desktop config:
-
-```json
-{
-  "mcpServers": {
-    "openfoodfacts": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch"],
-      "env": {
-        "FETCH_HOST": "https://your-server.com",
-        "FETCH_API_KEY": "your-production-secret-token"
-      }
-    }
-  }
-}
-```
-
 ## Quick Reference
 
 ### Command Options
@@ -133,6 +120,7 @@ For remote MCP server, update your Claude Desktop config:
 |------|---------|----------|----------------|-----------|
 | **STDIO** | `./openfoodfacts-mcp-server --stdio` | Claude Desktop, local development | None | stdio pipes |
 | **HTTP** | `./openfoodfacts-mcp-server` | Remote deployment, shared access | Bearer token | HTTP/JSON-RPC |
+| **Fetch DB** | `./openfoodfacts-mcp-server --fetch-db` | Download/update dataset locally | None | N/A |
 
 ### Environment Variables Reference
 
@@ -153,50 +141,3 @@ For remote MCP server, update your Claude Desktop config:
 |----------|----------------|-------------|
 | `/health` | None | Health check endpoint |
 | `/mcp` | Bearer token | MCP JSON-RPC 2.0 endpoint |
-
-## DuckDB Performance Tuning
-
-This server includes comprehensive DuckDB performance optimizations based on the [official DuckDB performance guide](https://duckdb.org/docs/stable/guides/performance/overview). You can tune performance using environment variables:
-
-### Memory Configuration
-
-- **`DUCKDB_MEMORY_LIMIT`**: Set based on available system memory
-  - Small systems: `2GB` or `4GB`
-  - Medium systems: `8GB` or `16GB`
-  - Large systems: `32GB` or higher
-  - Rule of thumb: 1-4GB per thread for aggregation workloads
-
-### Threading Configuration
-
-- **`DUCKDB_THREADS`**: Set based on CPU cores
-  - Small systems: `2-4` threads
-  - Medium systems: `4-8` threads  
-  - Large systems: `8-16` threads
-  - Avoid setting higher than your CPU core count
-
-### Performance vs Memory Trade-offs
-
-- **`DUCKDB_PRESERVE_INSERTION_ORDER=false`**: Allows DuckDB to reorder results for better memory efficiency
-- **`DUCKDB_CHECKPOINT_THRESHOLD`**: Higher values = more memory usage, but potentially better performance
-
-### Production Recommendations
-
-```bash
-# Small production server (2-4 CPU cores, 8GB RAM)
-DUCKDB_MEMORY_LIMIT=4GB
-DUCKDB_THREADS=4
-DUCKDB_CHECKPOINT_THRESHOLD=1GB
-DUCKDB_PRESERVE_INSERTION_ORDER=false
-
-# Medium production server (8 CPU cores, 16GB RAM)
-DUCKDB_MEMORY_LIMIT=8GB
-DUCKDB_THREADS=6
-DUCKDB_CHECKPOINT_THRESHOLD=2GB
-DUCKDB_PRESERVE_INSERTION_ORDER=false
-
-# Large production server (16+ CPU cores, 32GB+ RAM)
-DUCKDB_MEMORY_LIMIT=16GB
-DUCKDB_THREADS=12
-DUCKDB_CHECKPOINT_THRESHOLD=4GB
-DUCKDB_PRESERVE_INSERTION_ORDER=false
-```
