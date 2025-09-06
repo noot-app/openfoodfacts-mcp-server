@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -567,6 +568,12 @@ func (e *Engine) analyzeParquetStructure(ctx context.Context) {
 	}()
 
 	// Get parquet file statistics using simpler approach
+	// First check if file exists and is readable
+	if _, err := os.Stat(e.parquetPath); err != nil {
+		e.log.Debug("Parquet file not accessible for analysis", "path", e.parquetPath, "error", err)
+		return
+	}
+
 	statsQuery := `
 	SELECT 
 		COUNT(*) as total_rows,
@@ -576,7 +583,12 @@ func (e *Engine) analyzeParquetStructure(ctx context.Context) {
 	var totalRows, uniqueProducts int64
 	err := e.queryRowWithRetry(ctx, statsQuery, e.parquetPath).Scan(&totalRows, &uniqueProducts)
 	if err != nil {
-		e.log.Warn("Could not get parquet statistics", "error", err)
+		// Check if it's an empty file or schema issue
+		if strings.Contains(err.Error(), "no rows in result set") {
+			e.log.Debug("Parquet file appears to be empty or has no data", "path", e.parquetPath)
+		} else {
+			e.log.Debug("Could not get parquet statistics", "error", err, "path", e.parquetPath)
+		}
 		return
 	}
 
@@ -584,7 +596,7 @@ func (e *Engine) analyzeParquetStructure(ctx context.Context) {
 	metadataQuery := `SELECT * FROM parquet_schema(?) LIMIT 1`
 	rows, err := e.queryWithRetry(ctx, metadataQuery, e.parquetPath)
 	if err != nil {
-		e.log.Warn("Could not analyze parquet schema", "error", err)
+		e.log.Debug("Could not analyze parquet schema", "error", err)
 	} else {
 		rows.Close()
 
