@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# Build script for the Docker image
+#
+# Usage:
+#   script/build-image [tag]          - Build Docker image with Go version from .go-version
+#
+# Optional Arguments:
+#   tag - Docker image tag (defaults to 'openfoodfacts-mcp-server:latest')
+#
+# Examples:
+#   script/build-image                - Builds image tagged as 'openfoodfacts-mcp-server:latest'
+#   script/build-image openfoodfacts-mcp-server:v1.0.0    - Builds image tagged as 'openfoodfacts-mcp-server:v1.0.0'
+#   script/build-image my-registry/openfoodfacts-mcp-server:v1.0.0 - Builds with custom registry/tag
+
+set -euo pipefail
+
+source script/env "$@"
+
+# Default image tag if not provided
+IMAGE_TAG="${1:-openfoodfacts-mcp-server:latest}"
+
+echo -e "${BLUE}🐳 Building Docker image...${OFF}"
+
+# Read Go version from .go-version file
+GO_VERSION=$(cat .go-version | tr -d '\n')
+echo -e "${GREEN}Using Go version: ${GO_VERSION}${OFF}"
+echo -e "${GREEN}Building image tag: ${IMAGE_TAG}${OFF}"
+
+# Build the Docker image with the Go version from .go-version
+docker build \
+  --build-arg GO_VERSION="${GO_VERSION}" \
+  -t "${IMAGE_TAG}" \
+  .
+
+echo -e "${GREEN}✅ Docker image built successfully: ${IMAGE_TAG}${OFF}"
+
+# Show image size for debugging/optimization purposes
+IMAGE_SIZE=$(docker images --format "table {{.Size}}" "${IMAGE_TAG}" | tail -n 1)
+echo -e "${BLUE}📏 Image size: ${IMAGE_SIZE}${OFF}"
+
+echo -e "${BLUE}To run the image:${OFF}"
+echo -e "${YELLOW}  basic: docker run --rm ${IMAGE_TAG} [your-app-arguments]${OFF}"
+echo -e "${YELLOW}  with env file: docker run --rm --env-file .env ${IMAGE_TAG} [your-app-arguments]${OFF}"
+echo -e "${YELLOW}  with host network: docker run --rm --network host --env-file .env ${IMAGE_TAG} [your-app-arguments]${OFF}"
+echo -e "${YELLOW}  ⭐ with docker network: docker run --rm --network example_network_name --env-file .env ${IMAGE_TAG} [your-app-arguments]${OFF}"
