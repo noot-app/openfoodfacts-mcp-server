@@ -37,6 +37,7 @@ tmp/
 /openfoodfacts-mcp-server.exe
 
 # Environment files
+.deploy.env
 .env
 .env.local
 .env.production
@@ -59,8 +60,5 @@ logs/
 
 # Railway files
 .railway/
-
-# Docker files
-.dockerignore
 
 ./data

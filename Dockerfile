@@ -1,53 +1,55 @@
-# Build stage
-FROM golang:1.23-alpine AS builder
+# Multi-stage Dockerfile
 
-# Install build dependencies
-RUN apk add --no-cache gcc musl-dev
+# Build argument for Go version (can be overridden at build time)
+ARG GO_VERSION=1.24.4
 
-WORKDIR /app
+# Build stage - uses Go version from build arg (defaults to .go-version content)
+FROM golang:${GO_VERSION}-bookworm AS builder
 
-# Copy go mod files
-COPY go.mod go.sum ./
-RUN go mod download
+# Install build dependencies for DuckDB static linking
+RUN apt update && apt install -y \
+    zip build-essential libc++-dev libc++abi-dev
 
-# Copy source code
+# Set working directory
+WORKDIR /build
+
+# Copy source code and vendor directory (full dependency vendoring)
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o openfoodfacts-mcp-server ./cmd/openfoodfacts-mcp-server
+# Get build information for embedding into binary (matching script/build --simple)
+RUN VERSION_TAG="$(git describe --tags 2>/dev/null || echo 'dev')" && \
+    COMMIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo 'unknown')" && \
+    BUILD_TIME="$(git log -1 --format=%cI 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')" && \
+    PROJECT_NAME="openfoodfacts-mcp-server" && \
+    MODULE_PATH="github.com/noot-app/openfoodfacts-mcp-server" && \
+    \
+    # Build the binary with proper DuckDB static linking
+    CGO_ENABLED=1 \
+    GOPROXY=off \
+    GOSUMDB=off \
+    SOURCE_DATE_EPOCH="$(git log -1 --format=%ct 2>/dev/null || echo '0')" \
+    go build \
+        -mod=vendor \
+        -trimpath \
+        -v \
+        -ldflags="-s -w -X ${MODULE_PATH}/internal/version.tag=${VERSION_TAG} -X ${MODULE_PATH}/internal/version.commit=${COMMIT_SHA} -X ${MODULE_PATH}/internal/version.buildTime=${BUILD_TIME}" \
+        -o /build/${PROJECT_NAME} \
+        ./cmd/${PROJECT_NAME}
 
-# Runtime stage
-FROM alpine:latest
+# Runtime stage - use debian slim instead of scratch for DuckDB dependencies
+FROM debian:bookworm-slim@sha256:b1a741487078b369e78119849663d7f1a5341ef2768798f7b7406c4240f86aef
 
-# Install runtime dependencies
-RUN apk --no-cache add ca-certificates
+# Create a non-root user with predictable UID/GID
+RUN groupadd -r -g 1001 nonroot && useradd -r -u 1001 -g nonroot -s /bin/false nonroot
 
-# Create non-root user for security
-RUN adduser -D -s /bin/sh appuser
+# Add ca-certificates
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-WORKDIR /app
-
-# Copy binary from builder stage
-COPY --from=builder /app/openfoodfacts-mcp-server .
-
-# Create data directory and set permissions
-RUN mkdir -p ./data && chown -R appuser:appuser ./data
+# Copy the binary from the builder stage and set ownership
+COPY --from=builder --chown=nonroot:nonroot /build/openfoodfacts-mcp-server /openfoodfacts-mcp-server
 
 # Switch to non-root user
-USER appuser
+USER nonroot
 
-# Expose port
-EXPOSE 8080
-
-# Set default environment variables
-ENV DATA_DIR=./data
-ENV PORT=8080
-ENV PARQUET_URL=https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet
-ENV REFRESH_INTERVAL_SECONDS=86400
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
-
-# Run the application
-CMD ["./openfoodfacts-mcp-server"]
+# Set the binary as the entrypoint
+ENTRYPOINT ["/openfoodfacts-mcp-server"]
