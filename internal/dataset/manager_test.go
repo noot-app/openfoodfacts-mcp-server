@@ -377,3 +377,59 @@ func TestManager_IgnoreLock(t *testing.T) {
 		assert.True(t, os.IsNotExist(err))
 	})
 }
+
+func TestManager_EnsureDataset_ExistingFileWithoutMetadata(t *testing.T) {
+	// Create temporary directory for this test
+	tempDir, err := os.MkdirTemp("", "test-dataset-existing-file-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	parquetPath := filepath.Join(tempDir, "product-database.parquet")
+	metadataPath := filepath.Join(tempDir, "metadata.json")
+	lockPath := filepath.Join(tempDir, "refresh.lock")
+
+	// Create a mock server that returns consistent ETag and size
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "HEAD" {
+			w.Header().Set("ETag", "test-etag")
+			w.Header().Set("Content-Length", "17") // Same size as our test file
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer mockServer.Close()
+
+	// Create a parquet file without metadata
+	testContent := "test parquet data"
+	err = os.WriteFile(parquetPath, []byte(testContent), 0644)
+	require.NoError(t, err)
+
+	// Create manager with remote checks enabled
+	cfg := createTestConfig()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	manager := NewManager(mockServer.URL, parquetPath, metadataPath, lockPath, cfg, logger)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Call EnsureDataset - should generate metadata and not download
+	err = manager.EnsureDataset(ctx)
+	assert.NoError(t, err)
+
+	// Verify metadata was created
+	_, err = os.Stat(metadataPath)
+	assert.NoError(t, err)
+
+	// Verify metadata contains correct values
+	metadata, err := manager.loadMetadata()
+	require.NoError(t, err)
+	assert.Equal(t, "test-etag", metadata.ETag)
+	assert.Equal(t, int64(17), metadata.Size)
+	assert.NotEmpty(t, metadata.SHA256)
+
+	// Verify original file is unchanged
+	content, err := os.ReadFile(parquetPath)
+	require.NoError(t, err)
+	assert.Equal(t, testContent, string(content))
+}

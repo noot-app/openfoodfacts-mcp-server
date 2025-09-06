@@ -6,7 +6,7 @@ services:
     environment:
       - OPENFOODFACTS_MCP_TOKEN=your-secret-token
       - DATA_DIR=/data
-      - REFRESH_INTERVAL_SECONDS=0
+      - REFRESH_INTERVAL_SECONDS=30
       - PORT=8080
     volumes:
       - ./data:/data

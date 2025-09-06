@@ -105,8 +105,31 @@ func (m *Manager) isUpToDate(ctx context.Context) (bool, error) {
 	// Load local metadata
 	localMeta, err := m.loadMetadata()
 	if err != nil {
-		m.log.Debug("No local metadata found", "error", err)
-		return false, nil
+		m.log.Debug("No local metadata found, attempting to generate from existing file", "error", err)
+
+		// If metadata is missing but file exists, try to generate metadata
+		if _, statErr := os.Stat(m.parquetPath); statErr == nil {
+			m.log.Info("Parquet file exists without metadata, generating metadata from existing file")
+
+			// Generate metadata for existing file
+			generatedMeta, genErr := m.generateMetadataForExistingFile()
+			if genErr != nil {
+				m.log.Warn("Failed to generate metadata for existing file", "error", genErr)
+				return false, nil
+			}
+
+			// Save the generated metadata
+			if saveErr := m.saveMetadata(generatedMeta); saveErr != nil {
+				m.log.Warn("Failed to save generated metadata", "error", saveErr)
+			} else {
+				m.log.Info("Generated and saved metadata for existing file")
+			}
+
+			localMeta = generatedMeta
+		} else {
+			// File doesn't exist, definitely need to download
+			return false, nil
+		}
 	}
 
 	// Get remote metadata
@@ -421,4 +444,36 @@ func computeSHA256(filePath string) (string, error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// generateMetadataForExistingFile generates metadata for an existing parquet file
+func (m *Manager) generateMetadataForExistingFile() (*Metadata, error) {
+	// Get file stats
+	stat, err := os.Stat(m.parquetPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat existing file: %w", err)
+	}
+
+	// Compute SHA256
+	sha, err := computeSHA256(m.parquetPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute SHA256 for existing file: %w", err)
+	}
+
+	// Try to get remote metadata for ETag comparison
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	remoteMeta, err := m.getRemoteMetadata(ctx)
+	etag := ""
+	if err == nil && remoteMeta != nil {
+		etag = remoteMeta.ETag
+	}
+
+	return &Metadata{
+		SHA256:       sha,
+		DownloadedAt: stat.ModTime().UTC(), // Use file modification time as download time
+		ETag:         etag,
+		Size:         stat.Size(),
+	}, nil
 }
