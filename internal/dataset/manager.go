@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
 )
 
 // HFResponse represents the HuggingFace API response for parquet file discovery
@@ -35,16 +37,18 @@ type Manager struct {
 	metadataPath string
 	lockPath     string
 	log          *slog.Logger
+	config       *config.Config
 }
 
 // NewManager creates a new dataset manager
-func NewManager(parquetURL, parquetPath, metadataPath, lockPath string, logger *slog.Logger) *Manager {
+func NewManager(parquetURL, parquetPath, metadataPath, lockPath string, cfg *config.Config, logger *slog.Logger) *Manager {
 	return &Manager{
 		parquetURL:   parquetURL,
 		parquetPath:  parquetPath,
 		metadataPath: metadataPath,
 		lockPath:     lockPath,
 		log:          logger,
+		config:       cfg,
 	}
 }
 
@@ -67,6 +71,12 @@ func (m *Manager) EnsureDataset(ctx context.Context) error {
 
 	// Check if file exists
 	if _, err := os.Stat(m.parquetPath); err == nil {
+		// File exists, check if we should skip remote checks
+		if m.config.DisableRemoteCheck {
+			m.log.Info("Remote checks disabled, using local dataset", "duration", time.Since(start))
+			return nil
+		}
+
 		// File exists, check if up-to-date
 		upToDate, err := m.isUpToDate(ctx)
 		if err != nil {

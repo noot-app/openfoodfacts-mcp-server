@@ -8,12 +8,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/auth"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
-	"github.com/noot-app/openfoodfacts-mcp-server/internal/dataset"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/query"
 )
 
@@ -40,27 +39,23 @@ type HealthResponse struct {
 // Server represents the MCP server
 type Server struct {
 	config      *config.Config
-	dataManager *dataset.Manager
 	queryEngine query.QueryEngine
 	log         *slog.Logger
 	ready       bool
+	auth        *auth.BearerTokenAuth
+	initializer *ServerInitializer
 }
 
 // New creates a new server instance
 func New(cfg *config.Config, logger *slog.Logger) *Server {
-	dataManager := dataset.NewManager(
-		cfg.ParquetURL,
-		cfg.ParquetPath,
-		cfg.MetadataPath,
-		cfg.LockFile,
-		logger,
-	)
+	initializer := NewServerInitializer(cfg, logger)
 
 	return &Server{
 		config:      cfg,
-		dataManager: dataManager,
 		log:         logger,
 		ready:       false,
+		auth:        auth.NewBearerTokenAuth(cfg.AuthToken),
+		initializer: initializer,
 	}
 }
 
@@ -74,7 +69,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	// Start refresh loop if configured
-	if s.config.RefreshIntervalHours > 0 {
+	if s.config.RefreshIntervalSeconds > 0 {
 		s.startRefreshLoop(ctx)
 	}
 
@@ -87,9 +82,9 @@ func (s *Server) Start(ctx context.Context) error {
 	server := &http.Server{
 		Addr:         ":" + s.config.Port,
 		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  HTTPReadTimeout,
+		WriteTimeout: HTTPWriteTimeout,
+		IdleTimeout:  HTTPIdleTimeout,
 	}
 
 	// Start server in goroutine
@@ -108,7 +103,7 @@ func (s *Server) Start(ctx context.Context) error {
 	s.log.Info("Shutting down server...")
 
 	// Graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), HTTPShutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
@@ -125,35 +120,13 @@ func (s *Server) Start(ctx context.Context) error {
 
 // initialize sets up the dataset and query engine
 func (s *Server) initialize(ctx context.Context) error {
-	start := time.Now()
-	s.log.Info("Initializing server...")
-
-	// Log development mode warning
-	if s.config.IsDevelopment() {
-		s.log.Warn("🚧 DEVELOPMENT MODE ENABLED 🚧",
-			"environment", s.config.Environment,
-			"note", "Detailed error messages will be returned to clients")
-	}
-
-	// Ensure dataset is available
-	if err := s.dataManager.EnsureDataset(ctx); err != nil {
-		return fmt.Errorf("failed to ensure dataset: %w", err)
-	}
-
-	// Initialize query engine
-	engine, err := query.NewQueryEngine(s.config.ParquetPath, s.log)
+	// Use common initializer
+	engine, err := s.initializer.Initialize(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create query engine: %w", err)
+		return err
 	}
 	s.queryEngine = engine
-
-	// Test connection
-	if err := s.queryEngine.TestConnection(ctx); err != nil {
-		return fmt.Errorf("failed to test connection: %w", err)
-	}
-
 	s.ready = true
-	s.log.Info("Server initialized successfully", "duration", time.Since(start))
 	return nil
 }
 
@@ -173,7 +146,7 @@ func (s *Server) startRefreshLoop(ctx context.Context) {
 				return
 			case <-ticker.C:
 				s.log.Info("Refresh tick: checking dataset")
-				if err := s.dataManager.EnsureDataset(ctx); err != nil {
+				if err := s.initializer.RefreshDataset(ctx); err != nil {
 					s.log.Error("Refresh failed", "error", err)
 				} else {
 					s.log.Info("Refresh completed successfully")
@@ -232,8 +205,8 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 	if req.Limit == 0 {
 		req.Limit = 10
 	}
-	if req.Limit > 100 {
-		req.Limit = 100
+	if req.Limit > MaxQueryLimit {
+		req.Limit = MaxQueryLimit
 	}
 
 	start := time.Now()
@@ -277,17 +250,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 
 // isAuthorized checks if the request is properly authorized
 func (s *Server) isAuthorized(r *http.Request) bool {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return false
-	}
-
-	token := strings.TrimPrefix(authHeader, "Bearer ")
-	if token == "" || token == authHeader {
-		return false
-	}
-
-	return token == s.config.AuthToken
+	return s.auth.IsAuthorized(r)
 }
 
 // sendErrorResponse sends an error response, with detailed error in development mode

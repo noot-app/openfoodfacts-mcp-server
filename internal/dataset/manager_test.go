@@ -11,17 +11,33 @@ import (
 	"testing"
 	"time"
 
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// createTestConfig creates a test configuration with default values
+func createTestConfig() *config.Config {
+	return &config.Config{
+		DisableRemoteCheck: false, // Allow remote checks in tests by default
+	}
+}
+
+// createTestConfigWithDisabledRemoteCheck creates a test configuration with remote checks disabled
+func createTestConfigWithDisabledRemoteCheck() *config.Config {
+	return &config.Config{
+		DisableRemoteCheck: true, // Disable remote checks
+	}
+}
+
 func TestManager_EnsureDataset(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupFiles     func(dir string)
-		mockServer     func() *httptest.Server
-		expectDownload bool
-		expectError    bool
+		name                   string
+		setupFiles             func(dir string)
+		mockServer             func() *httptest.Server
+		useDisabledRemoteCheck bool
+		expectDownload         bool
+		expectError            bool
 	}{
 		{
 			name: "file does not exist - should download",
@@ -40,8 +56,9 @@ func TestManager_EnsureDataset(t *testing.T) {
 					}
 				}))
 			},
-			expectDownload: true,
-			expectError:    false,
+			useDisabledRemoteCheck: false,
+			expectDownload:         true,
+			expectError:            false,
 		},
 		{
 			name: "file exists and up to date - should skip",
@@ -70,8 +87,9 @@ func TestManager_EnsureDataset(t *testing.T) {
 					}
 				}))
 			},
-			expectDownload: false,
-			expectError:    false,
+			useDisabledRemoteCheck: false,
+			expectDownload:         false,
+			expectError:            false,
 		},
 		{
 			name: "file exists but outdated - should download",
@@ -103,8 +121,26 @@ func TestManager_EnsureDataset(t *testing.T) {
 					}
 				}))
 			},
-			expectDownload: true,
-			expectError:    false,
+			useDisabledRemoteCheck: false,
+			expectDownload:         true,
+			expectError:            false,
+		},
+		{
+			name: "file exists with remote checks disabled - should skip",
+			setupFiles: func(dir string) {
+				// Create existing parquet file
+				parquetPath := filepath.Join(dir, "product-database.parquet")
+				os.WriteFile(parquetPath, []byte("test parquet data"), 0644)
+			},
+			mockServer: func() *httptest.Server {
+				// Server should never be called when remote checks are disabled
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					t.Fatal("Server should not be called when remote checks are disabled")
+				}))
+			},
+			useDisabledRemoteCheck: true,
+			expectDownload:         false,
+			expectError:            false,
 		},
 	}
 
@@ -124,11 +160,18 @@ func TestManager_EnsureDataset(t *testing.T) {
 
 			// Create manager
 			logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+			var testConfig *config.Config
+			if tt.useDisabledRemoteCheck {
+				testConfig = createTestConfigWithDisabledRemoteCheck()
+			} else {
+				testConfig = createTestConfig()
+			}
 			manager := NewManager(
 				server.URL,
 				filepath.Join(tmpDir, "product-database.parquet"),
 				filepath.Join(tmpDir, "metadata.json"),
 				filepath.Join(tmpDir, "refresh.lock"),
+				testConfig,
 				logger,
 			)
 
@@ -228,6 +271,7 @@ func TestMetadata_SaveLoad(t *testing.T) {
 		filepath.Join(tmpDir, "test.parquet"),
 		filepath.Join(tmpDir, "metadata.json"),
 		filepath.Join(tmpDir, "test.lock"),
+		createTestConfig(),
 		logger,
 	)
 

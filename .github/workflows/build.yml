@@ -1,32 +1,32 @@
-# name: build
+name: build
 
-# on:
-#   push:
-#     branches: [ main ]
-#   pull_request:
-#     branches: [ main ]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
-# permissions:
-#   contents: read
+permissions:
+  contents: read
 
-# jobs:
-#   build:
-#     runs-on: ubuntu-latest
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-#     steps:
-#       - uses: actions/checkout@v5
-#         with:
-#           persist-credentials: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
-#       - name: setup go
-#         uses: actions/setup-go@v5
-#         with:
-#           go-version-file: 'go.mod'
-#           cache: true
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
 
-#       - name: bootstrap
-#         run: script/bootstrap --ci --install-goreleaser
+      - name: bootstrap
+        run: script/bootstrap --ci --install-goreleaser
 
-#       # run a build in single target mode to save ci time
-#       - name: build
-#         run: script/build --single-target
+      # run a build in single target mode to save ci time
+      - name: build
+        run: script/build --single-target

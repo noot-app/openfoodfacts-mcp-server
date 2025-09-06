@@ -1,292 +1,153 @@
-# OpenFoodFacts MCP Server
+# OpenFoodFacts MCP Server 🔌
 
-A high-performance MCP (Model Context Protocol) server that provides access to the Open Food Facts dataset using DuckDB for fast querying. Built in Go with support for Railway deployment with persistent volumes.
+[![lint](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/lint.yml/badge.svg)](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/lint.yml)
+[![test](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/test.yml/badge.svg)](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/test.yml)
+[![build](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/build.yml/badge.svg)](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/build.yml)
 
-## Features
+A MCP (Model Context Protocol) server that provides access to the Open Food Facts dataset using DuckDB and parquet for fast queries. Supports both local Claude Desktop integration and remote deployment with authentication.
 
-- 🚀 **Fast Queries**: Uses DuckDB to query Parquet files with sub-100ms response times
-- 📦 **Automatic Dataset Management**: Downloads and caches the Open Food Facts dataset locally
-- 🔄 **Smart Refresh**: Periodically checks for dataset updates using ETag/hash comparison
-- 🔒 **Concurrent Safe**: File locking prevents multiple instances from downloading simultaneously
-- 🐳 **Railway Ready**: Designed for Railway deployment with persistent volume support
-- 🔐 **Bearer Auth**: Secure API access with configurable authentication tokens
-- 📊 **Structured Logging**: JSON-structured logs for monitoring and debugging
+![logo](./docs/assets/logo.png)
 
-## API Endpoints
+## Usage 💻
 
-### Health Check
+This MCP server can operate in two distinct modes:
 
-```bash
-GET /health
-```
+### 1. **STDIO Mode** (Local Claude Desktop Integration)
 
-Returns server status and readiness.
+- **Use case**: Local development and Claude Desktop integration
+- **Command**: `./openfoodfacts-mcp-server --stdio`
+- **Transport**: stdio pipes
+- **Authentication**: None required
+- **Perfect for**: Claude Desktop, local development, testing
 
-### Product Search
+### 2. **HTTP Mode** (Remote Deployment)
 
-```bash
-POST /query
-Authorization: Bearer <AUTH_TOKEN>
-Content-Type: application/json
+- **Use case**: Remote MCP server accessible over the internet
+- **Command**: `./openfoodfacts-mcp-server` (default mode)
+- **Transport**: HTTP with JSON-RPC 2.0
+- **Authentication**: Bearer token required (except `/health` endpoint)
+- **Perfect for**: Shared deployments, cloud hosting, team access, mcp as a service
 
-{
-  "name": "Nutella",
-  "brand": "Ferrero", 
-  "limit": 10
-}
-```
+## Demo 📹
 
-Search by barcode:
+<https://github.com/user-attachments/assets/e742c4d3-a36d-46af-97b6-dcd41180b5aa>
 
-```bash
-POST /query
-Authorization: Bearer <AUTH_TOKEN>
-Content-Type: application/json
+## How It Works 💡
 
-{
-  "barcode": "3017620422003",
-  "limit": 1
-}
-```
+This MCP server downloads and caches the Open Food Facts Parquet dataset locally, then uses DuckDB for fast product searches. It provides two main tools:
 
-## Configuration
+- **search_products_by_brand_and_name**: Search products by name and brand
+- **search_by_barcode**: Find product by barcode (UPC/EAN)
 
-Configure the server using environment variables:
+The server automatically manages dataset updates, uses file locking for concurrent safety, and provides structured JSON logging.
+
+## Local Setup for Claude Desktop (STDIO Mode)
+
+This setup uses **STDIO mode** for local Claude Desktop integration.
+
+### 1. Build the Binary
 
 ```bash
-# Authentication
-AUTH_TOKEN=your-secret-token
-
-# Dataset Configuration
-PARQUET_URL=https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet
-DATA_DIR=./data
-PARQUET_PATH=./data/product-database.parquet
-METADATA_PATH=./data/metadata.json
-LOCK_FILE=./data/refresh.lock
-
-# Refresh Behavior
-REFRESH_INTERVAL_HOURS=24  # 0 to disable periodic refresh
-
-# Server
-PORT=8080
+script/build --simple
 ```
 
-## Development
-
-### Prerequisites
-
-- Go 1.23+
-- DuckDB (automatically handled by Go module)
-
-### Running Locally
+### 2. Fetch the Database
 
 ```bash
-# Clone the repository
-git clone https://github.com/noot-app/openfoodfacts-mcp-server
-cd openfoodfacts-mcp-server
-
-# Install dependencies
-go mod download
-go mod vendor
-
-# Set environment variables
-export AUTH_TOKEN=your-secret-token
-export DATA_DIR=./data
-export REFRESH_INTERVAL_HOURS=0  # Disable refresh for local dev
-
-# Run the server
-go run ./cmd/openfoodfacts-mcp-server
+openfoodfacts-mcp-server --fetch-db
 ```
 
-### Testing
+### 3. Configure Claude Desktop
 
-```bash
-# Run all tests
-script/test
-
-# Run tests with coverage
-go test -v -cover ./...
-
-# Lint code
-script/lint
-```
-
-### Building
-
-```bash
-# Build for current platform
-script/build
-
-# Build for single target (faster during development)
-script/build --single-target
-```
-
-## Railway Deployment
-
-### 1. Setup Railway Project
-
-1. Create a new Railway project
-2. Connect your GitHub repository
-3. Add a persistent volume mounted to `./data`
-
-### 2. Environment Variables
-
-Set the following environment variables in Railway:
-
-```bash
-AUTH_TOKEN=your-production-secret-token
-DATA_DIR=./data
-REFRESH_INTERVAL_HOURS=24
-PORT=8080
-RAILWAY_RUN_UID=0  # Required for volume permissions
-```
-
-### 3. Volume Configuration
-
-- **Mount Path**: `./data`
-- **Size**: At least 5GB (dataset is ~3GB)
-- **Backup**: Recommended for production
-
-### 4. Health Checks
-
-Railway will automatically use the health check endpoint at `/health`.
-
-## Usage Examples
-
-### Search by Product Name
-
-```bash
-curl -X POST "https://your-app.railway.app/query" \
-  -H "Authorization: Bearer $AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Coca Cola","limit":5}'
-```
-
-### Search by Brand
-
-```bash
-curl -X POST "https://your-app.railway.app/query" \
-  -H "Authorization: Bearer $AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"brand":"Nestle","limit":10}'
-```
-
-### Search by Barcode
-
-```bash
-curl -X POST "https://your-app.railway.app/query" \
-  -H "Authorization: Bearer $AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"barcode":"3017620422003"}'
-```
-
-### Combined Search
-
-```bash
-curl -X POST "https://your-app.railway.app/query" \
-  -H "Authorization: Bearer $AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"chocolate","brand":"Ferrero","limit":5}'
-```
-
-## Response Format
+Add this to your Claude Desktop MCP settings (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
-  "found": true,
-  "products": [
-    {
-      "code": "3017620422003",
-      "product_name": "Nutella",
-      "brands": "Ferrero",
-      "nutriments": {
-        "energy": 2255,
-        "fat": 30.9,
-        "saturated-fat": 10.6,
-        "carbohydrates": 57.5,
-        "sugars": 56.3,
-        "proteins": 6.3,
-        "salt": 0.107
-      },
-      "link": "https://world.openfoodfacts.org/product/3017620422003/nutella-ferrero",
-      "ingredients": {...}
+  "mcpServers": {
+    "openfoodfacts": {
+      "command": "/path/to/openfoodfacts-mcp-server",
+      "args": ["--stdio"],
+      "env": {
+        "OPENFOODFACTS_MCP_TOKEN": "your-secret-token",
+        "DATA_DIR": "/full/path/to/openfoodfacts-mcp-server/data",
+        "ENV": "development"
+      }
     }
-  ]
+  }
 }
 ```
 
-## Architecture
+### 3. Try it Out
 
-```text
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   HTTP Client   │───▶│   MCP Server     │───▶│   DuckDB        │
-│                 │    │                  │    │                 │
-│ - Name Search   │    │ - Authentication │    │ - Parquet Query │
-│ - Brand Search  │    │ - Request Parse  │    │ - Fast Lookups  │
-│ - Barcode Query │    │ - Response Build │    │ - Predicate     │
-└─────────────────┘    └──────────────────┘    │   Pushdown      │
-                                                └─────────────────┘
-                                 │
-                                 ▼
-                       ┌──────────────────┐
-                       │ Dataset Manager  │
-                       │                  │
-                       │ - Download       │
-                       │ - ETag Check     │
-                       │ - File Locking   │
-                       │ - Periodic Sync  │
-                       └──────────────────┘
-                                 │
-                                 ▼
-                       ┌──────────────────┐
-                       │ Persistent Volume│
-                       │                  │
-                       │ - Parquet File   │
-                       │ - Metadata       │
-                       │ - Lock Files     │
-                       └──────────────────┘
+Restart Claude Desktop. The mcp server will automatically start and be ready for food product queries.
+
+## Remote Deployment (HTTP Mode)
+
+This setup uses **HTTP mode** for remote deployment with authentication.
+
+### Environment Variables
+
+For production deployment (HTTP mode), configure these environment variables:
+
+```bash
+# Required: Authentication
+OPENFOODFACTS_MCP_TOKEN=your-production-secret-token
+
+# Optional: Data management
+DATA_DIR=./data
+PARQUET_URL=https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet
+REFRESH_INTERVAL_SECONDS=86400
+
+# Optional: Server configuration  
+PORT=8080
+ENV=production
+
+# Optional: DuckDB Performance Tuning
+DUCKDB_MEMORY_LIMIT=4GB                    # Memory limit (e.g. 2GB, 4GB, 8GB, 16GB)
+DUCKDB_THREADS=4                           # Number of threads (1-16 typically)
+DUCKDB_CHECKPOINT_THRESHOLD=1GB            # When to write to disk (e.g. 512MB, 1GB, 2GB)
+DUCKDB_PRESERVE_INSERTION_ORDER=true       # Set to false for large datasets to reduce memory
 ```
 
-## Performance
+### Running in HTTP Mode
 
-- **Cold Start**: ~30-60 seconds (dataset download)
-- **Warm Queries**: <100ms for most searches
-- **Memory Usage**: ~500MB-1GB (depending on query complexity)
-- **Dataset Size**: ~3GB compressed Parquet file
-- **Concurrent Safety**: File locking prevents corruption
+For remote deployment, run **without** the `--stdio` flag (HTTP mode is the default):
 
-## Monitoring
-
-The server provides structured JSON logs with the following levels:
-
-- `INFO`: Normal operations, query completions
-- `WARN`: Non-fatal issues, metadata check failures
-- `ERROR`: Serious errors, query failures
-- `DEBUG`: Detailed debugging information
-
-Example log entry:
-
-```json
-{
-  "time": "2025-01-09T10:30:45Z",
-  "level": "INFO",
-  "msg": "Query completed",
-  "found": 5,
-  "duration": "45ms",
-  "name": "chocolate",
-  "brand": "ferrero"
-}
+```bash
+./openfoodfacts-mcp-server
 ```
 
-## Contributing
+This will start an HTTP server on the configured port (default 8080) with:
 
-1. Fork the repository
-2. Create a feature branch
-3. Write tests for your changes
-4. Ensure all tests pass: `script/test`
-5. Lint your code: `script/lint`  
-6. Submit a pull request
+- `/health` endpoint (no authentication required)
+- `/mcp` endpoint (Bearer token authentication required)
 
-## License
+## Quick Reference
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Command Options
+
+| Mode | Command | Use Case | Authentication | Transport |
+|------|---------|----------|----------------|-----------|
+| **STDIO** | `./openfoodfacts-mcp-server --stdio` | Claude Desktop, local development | None | stdio pipes |
+| **HTTP** | `./openfoodfacts-mcp-server` | Remote deployment, shared access | Bearer token | HTTP/JSON-RPC |
+| **Fetch DB** | `./openfoodfacts-mcp-server --fetch-db` | Download/update dataset locally | None | N/A |
+
+### Environment Variables Reference
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENFOODFACTS_MCP_TOKEN` | Yes (HTTP mode) | - | Bearer token for authentication |
+| `DATA_DIR` | No | `./data` | Directory for dataset storage |
+| `PORT` | No | `8080` | HTTP server port (HTTP mode only) |
+| `ENV` | No | `production` | Environment (development/production) |
+| `DUCKDB_MEMORY_LIMIT` | No | `4GB` | DuckDB memory limit (2GB, 4GB, 8GB, etc.) |
+| `DUCKDB_THREADS` | No | `4` | Number of DuckDB threads (1-16) |
+| `DUCKDB_CHECKPOINT_THRESHOLD` | No | `1GB` | Checkpoint threshold (512MB, 1GB, 2GB) |
+| `DUCKDB_PRESERVE_INSERTION_ORDER` | No | `true` | Preserve insertion order (false for better performance) |
+
+### HTTP Endpoints (HTTP Mode Only)
+
+| Endpoint | Authentication | Description |
+|----------|----------------|-------------|
+| `/health` | None | Health check endpoint |
+| `/mcp` | Bearer token | MCP JSON-RPC 2.0 endpoint |

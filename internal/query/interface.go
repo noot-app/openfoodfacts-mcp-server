@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"os"
+
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
 )
 
 // QueryEngine defines the interface for querying the product database
@@ -26,9 +28,9 @@ type Product struct {
 
 // NewQueryEngine creates a new query engine
 // Uses mock engine if QUERY_ENGINE_MOCK environment variable is set
-func NewQueryEngine(parquetPath string, logger *slog.Logger) (QueryEngine, error) {
+func NewQueryEngine(parquetPath string, cfg *config.Config, logger *slog.Logger) (QueryEngine, error) {
 	if os.Getenv("QUERY_ENGINE_MOCK") == "true" {
 		return NewMockEngine(logger), nil
 	}
-	return NewEngine(parquetPath, logger)
+	return NewEngine(parquetPath, cfg, logger)
 }

@@ -15,6 +15,8 @@
 
 set -euo pipefail
 
+SIMPLE_MODE=false
+
 # Check if --release flag is present and handle it
 RELEASE_MODE=false
 FILTERED_ARGS=()
@@ -23,12 +25,33 @@ for arg in "$@"; do
   if [[ "$arg" == "--release" ]]; then
     RELEASE_MODE=true
     export BUILD_RELEASE_MODE=1
+  elif [[ "$arg" == "--simple" ]]; then
+    SIMPLE_MODE=true
   else
     FILTERED_ARGS+=("$arg")
   fi
 done
 
 source script/env "${FILTERED_ARGS[@]}"
+
+if [[ "$SIMPLE_MODE" == "true" ]]; then
+  # Get version tag, default to "dev" if no tags exist
+  VERSION_TAG=$(git describe --tags 2>/dev/null || echo "dev")
+  
+  CGO_ENABLED=1 \
+  GOPROXY=off \
+  GOSUMDB=off \
+  SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" \
+  go build -trimpath -mod=vendor -v \
+    -ldflags "-s -w \
+      -X github.com/noot-app/openfoodfacts-mcp-server/internal/version.tag=${VERSION_TAG} \
+      -X github.com/noot-app/openfoodfacts-mcp-server/internal/version.commit=$(git rev-parse HEAD) \
+      -X github.com/noot-app/openfoodfacts-mcp-server/internal/version.buildTime=$(git log -1 --format=%cI)" \
+    -o openfoodfacts-mcp-server ./cmd/openfoodfacts-mcp-server
+
+  echo -e "${GREEN}Built binary: ./openfoodfacts-mcp-server${OFF}"
+  exit 0
+fi
 
 # Get build information for embedding into binary
 COMMIT_SHA="$(git rev-parse HEAD)"
