@@ -1,5 +1,8 @@
 # OpenFoodFacts MCP Server 🔌
 
+[![lint](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/lint.yml/badge.svg)](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/lint.yml)
+[![test](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/test.yml/badge.svg)](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/test.yml)
+
 A MCP (Model Context Protocol) server that provides access to the Open Food Facts dataset using DuckDB and parquet for fast queries. Supports both local Claude Desktop integration and remote deployment with authentication.
 
 ## Usage 💻
@@ -21,6 +24,10 @@ This MCP server can operate in two distinct modes:
 - **Transport**: HTTP with JSON-RPC 2.0
 - **Authentication**: Bearer token required (except `/health` endpoint)
 - **Perfect for**: Shared deployments, cloud hosting, team access, mcp as a service
+
+## Demo 📹
+
+https://github.com/user-attachments/assets/e742c4d3-a36d-46af-97b6-dcd41180b5aa
 
 ## How It Works 💡
 
