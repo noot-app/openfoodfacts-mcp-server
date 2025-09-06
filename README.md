@@ -27,7 +27,7 @@ This MCP server can operate in two distinct modes:
 
 ## Demo 📹
 
-https://github.com/user-attachments/assets/e742c4d3-a36d-46af-97b6-dcd41180b5aa
+<https://github.com/user-attachments/assets/e742c4d3-a36d-46af-97b6-dcd41180b5aa>
 
 ## How It Works 💡
 
