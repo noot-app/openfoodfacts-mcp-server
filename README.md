@@ -3,12 +3,15 @@
 [![lint](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/lint.yml/badge.svg)](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/lint.yml)
 [![test](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/test.yml/badge.svg)](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/test.yml)
 [![build](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/build.yml/badge.svg)](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/build.yml)
+[![docker](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/docker.yml/badge.svg)](https://github.com/noot-app/openfoodfacts-mcp-server/actions/workflows/docker.yml)
 
 A MCP (Model Context Protocol) server that provides access to the Open Food Facts dataset using DuckDB and parquet for fast queries. Supports both local Claude Desktop integration and remote deployment with authentication.
 
 ![logo](./docs/assets/logo.png)
 
 ## Usage 💻
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/openfoodfacts-mcp-server?referralCode=0D8Grd&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 This MCP server can operate in two distinct modes:
 
