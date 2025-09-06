@@ -79,6 +79,17 @@ func (s *Server) CreateHandler() http.Handler {
 
 	// Simple API key authentication middleware
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Add CORS headers for browser-based clients like OpenAI
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		if !s.auth.IsAuthorized(r) {
 			s.log.Warn("Authentication failed")
 			s.auth.SetUnauthorizedHeaders(w)
@@ -95,6 +106,17 @@ func (s *Server) CreateHandler() http.Handler {
 // CreateHealthHandler creates a health check handler
 func (s *Server) CreateHealthHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Add CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		// Test database connection
 		ctx := r.Context()
 		err := s.queryEngine.TestConnection(ctx)
