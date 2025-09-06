@@ -54,6 +54,10 @@ func TestLoad(t *testing.T) {
 				DuckDBThreads:                4,
 				DuckDBCheckpointThreshold:    "1GB",
 				DuckDBPreserveInsertionOrder: true,
+				// Connection pool defaults
+				DuckDBMaxOpenConns:    4,
+				DuckDBMaxIdleConns:    2,
+				DuckDBConnMaxLifetime: 60,
 			},
 		},
 		{
@@ -80,6 +84,10 @@ func TestLoad(t *testing.T) {
 				DuckDBThreads:                4,
 				DuckDBCheckpointThreshold:    "1GB",
 				DuckDBPreserveInsertionOrder: true,
+				// Connection pool defaults
+				DuckDBMaxOpenConns:    4,
+				DuckDBMaxIdleConns:    2,
+				DuckDBConnMaxLifetime: 60,
 			},
 		},
 		{
@@ -103,6 +111,10 @@ func TestLoad(t *testing.T) {
 				DuckDBThreads:                4,
 				DuckDBCheckpointThreshold:    "1GB",
 				DuckDBPreserveInsertionOrder: true,
+				// Connection pool defaults
+				DuckDBMaxOpenConns:    4,
+				DuckDBMaxIdleConns:    2,
+				DuckDBConnMaxLifetime: 60,
 			},
 		},
 		{
@@ -126,6 +138,10 @@ func TestLoad(t *testing.T) {
 				DuckDBThreads:                4,
 				DuckDBCheckpointThreshold:    "1GB",
 				DuckDBPreserveInsertionOrder: true,
+				// Connection pool defaults
+				DuckDBMaxOpenConns:    4,
+				DuckDBMaxIdleConns:    2,
+				DuckDBConnMaxLifetime: 60,
 			},
 		},
 	}
@@ -139,7 +155,7 @@ func TestLoad(t *testing.T) {
 				"PORT", "ENV", "DISABLE_REMOTE_CHECK",
 				// DuckDB configuration variables
 				"DUCKDB_MEMORY_LIMIT", "DUCKDB_THREADS", "DUCKDB_CHECKPOINT_THRESHOLD",
-				"DUCKDB_PRESERVE_INSERTION_ORDER",
+				"DUCKDB_PRESERVE_INSERTION_ORDER", "DUCKDB_MAX_OPEN_CONNS", "DUCKDB_MAX_IDLE_CONNS", "DUCKDB_CONN_MAX_LIFETIME",
 			}
 
 			// Save original values

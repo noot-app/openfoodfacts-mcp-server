@@ -49,6 +49,11 @@ type Config struct {
 	DuckDBThreads                int    // Number of threads
 	DuckDBCheckpointThreshold    string // e.g. "1GB"
 	DuckDBPreserveInsertionOrder bool   // Allow reordering for performance
+
+	// Connection Pool Settings for concurrent workloads
+	DuckDBMaxOpenConns    int // Maximum open connections (default: 4)
+	DuckDBMaxIdleConns    int // Maximum idle connections (default: 2)
+	DuckDBConnMaxLifetime int // Connection lifetime in minutes (default: 60)
 }
 
 // IsDevelopment returns true if running in development mode
@@ -80,6 +85,28 @@ func LoadWithFileReader(fileReader FileReader) *Config {
 	if t := os.Getenv("DUCKDB_THREADS"); t != "" {
 		if parsed, err := strconv.Atoi(t); err == nil {
 			duckDBThreads = parsed
+		}
+	}
+
+	// Parse DuckDB connection pool settings
+	maxOpenConns := 4 // Conservative default for DuckDB
+	if env := os.Getenv("DUCKDB_MAX_OPEN_CONNS"); env != "" {
+		if parsed, err := strconv.Atoi(env); err == nil && parsed > 0 && parsed <= 20 {
+			maxOpenConns = parsed
+		}
+	}
+
+	maxIdleConns := 2 // Conservative default
+	if env := os.Getenv("DUCKDB_MAX_IDLE_CONNS"); env != "" {
+		if parsed, err := strconv.Atoi(env); err == nil && parsed > 0 && parsed <= 10 {
+			maxIdleConns = parsed
+		}
+	}
+
+	connMaxLifetime := 60 // 60 minutes default
+	if env := os.Getenv("DUCKDB_CONN_MAX_LIFETIME"); env != "" {
+		if parsed, err := strconv.Atoi(env); err == nil && parsed > 0 {
+			connMaxLifetime = parsed
 		}
 	}
 
@@ -115,6 +142,11 @@ func LoadWithFileReader(fileReader FileReader) *Config {
 		DuckDBThreads:                duckDBThreads,
 		DuckDBCheckpointThreshold:    getEnv("DUCKDB_CHECKPOINT_THRESHOLD", "1GB"),
 		DuckDBPreserveInsertionOrder: preserveInsertionOrder,
+
+		// Connection Pool Settings for concurrent workloads
+		DuckDBMaxOpenConns:    maxOpenConns,
+		DuckDBMaxIdleConns:    maxIdleConns,
+		DuckDBConnMaxLifetime: connMaxLifetime,
 	}
 }
 

@@ -68,9 +68,14 @@ func NewEngine(parquetPath string, cfg *config.Config, logger *slog.Logger) (*En
 
 	// Configure connection pool for optimal performance
 	// Based on DuckDB performance guide: fewer connections with more memory per connection
-	db.SetMaxOpenConns(4)                   // Reduced to allow more memory per connection
-	db.SetMaxIdleConns(2)                   // Keep fewer idle connections
-	db.SetConnMaxLifetime(60 * time.Minute) // Longer lifetime for better cache reuse
+	db.SetMaxOpenConns(cfg.DuckDBMaxOpenConns)                                    // Configurable max connections
+	db.SetMaxIdleConns(cfg.DuckDBMaxIdleConns)                                    // Configurable idle connections
+	db.SetConnMaxLifetime(time.Duration(cfg.DuckDBConnMaxLifetime) * time.Minute) // Configurable lifetime
+
+	logger.Info("DuckDB connection pool configured",
+		"max_open_conns", cfg.DuckDBMaxOpenConns,
+		"max_idle_conns", cfg.DuckDBMaxIdleConns,
+		"conn_max_lifetime_minutes", cfg.DuckDBConnMaxLifetime)
 
 	// Apply DuckDB performance optimizations based on configuration
 	pragmaSettings := getDuckDBSettings(cfg, logger)
