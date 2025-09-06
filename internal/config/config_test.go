@@ -47,6 +47,7 @@ func TestLoad(t *testing.T) {
 				LockFile:               "data/refresh.lock",             // filepath.Join result
 				RefreshIntervalSeconds: 86400,
 				DisableRemoteCheck:     false,
+				IgnoreLock:             false,
 				Port:                   "8080",
 				Environment:            "production",
 				// DuckDB defaults
@@ -77,6 +78,7 @@ func TestLoad(t *testing.T) {
 				LockFile:               "/custom/data/refresh.lock",
 				RefreshIntervalSeconds: 43200,
 				DisableRemoteCheck:     false,
+				IgnoreLock:             false,
 				Port:                   "3000",
 				Environment:            "production",
 				// DuckDB defaults
@@ -104,6 +106,7 @@ func TestLoad(t *testing.T) {
 				LockFile:               "data/refresh.lock",             // filepath.Join result
 				RefreshIntervalSeconds: 0,
 				DisableRemoteCheck:     false,
+				IgnoreLock:             false,
 				Port:                   "8080",
 				Environment:            "production",
 				// DuckDB defaults
@@ -131,6 +134,35 @@ func TestLoad(t *testing.T) {
 				LockFile:               "data/refresh.lock",             // filepath.Join result
 				RefreshIntervalSeconds: 86400,
 				DisableRemoteCheck:     true,
+				IgnoreLock:             false,
+				Port:                   "8080",
+				Environment:            "production",
+				// DuckDB defaults
+				DuckDBMemoryLimit:            "4GB",
+				DuckDBThreads:                4,
+				DuckDBCheckpointThreshold:    "1GB",
+				DuckDBPreserveInsertionOrder: true,
+				// Connection pool defaults
+				DuckDBMaxOpenConns:    4,
+				DuckDBMaxIdleConns:    2,
+				DuckDBConnMaxLifetime: 60,
+			},
+		},
+		{
+			name: "ignore lock",
+			envVars: map[string]string{
+				"IGNORE_LOCK": "true",
+			},
+			expected: &Config{
+				AuthToken:              "super-secret-token",
+				ParquetURL:             "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet",
+				DataDir:                "./data",
+				ParquetPath:            "data/product-database.parquet", // filepath.Join result
+				MetadataPath:           "data/metadata.json",            // filepath.Join result
+				LockFile:               "data/refresh.lock",             // filepath.Join result
+				RefreshIntervalSeconds: 86400,
+				DisableRemoteCheck:     false,
+				IgnoreLock:             true,
 				Port:                   "8080",
 				Environment:            "production",
 				// DuckDB defaults
@@ -152,7 +184,7 @@ func TestLoad(t *testing.T) {
 			envVarsToClean := []string{
 				"OPENFOODFACTS_MCP_TOKEN", "PARQUET_URL", "DATA_DIR", "PARQUET_PATH",
 				"METADATA_PATH", "LOCK_FILE", "REFRESH_INTERVAL_SECONDS",
-				"PORT", "ENV", "DISABLE_REMOTE_CHECK",
+				"PORT", "ENV", "DISABLE_REMOTE_CHECK", "IGNORE_LOCK",
 				// DuckDB configuration variables
 				"DUCKDB_MEMORY_LIMIT", "DUCKDB_THREADS", "DUCKDB_CHECKPOINT_THRESHOLD",
 				"DUCKDB_PRESERVE_INSERTION_ORDER", "DUCKDB_MAX_OPEN_CONNS", "DUCKDB_MAX_IDLE_CONNS", "DUCKDB_CONN_MAX_LIFETIME",

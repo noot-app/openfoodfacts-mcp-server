@@ -295,3 +295,85 @@ func TestMetadata_SaveLoad(t *testing.T) {
 	assert.Equal(t, originalMeta.Size, loadedMeta.Size)
 	assert.True(t, originalMeta.DownloadedAt.Equal(loadedMeta.DownloadedAt))
 }
+
+func TestManager_IgnoreLock(t *testing.T) {
+	// Create temporary directory
+	tempDir, err := os.MkdirTemp("", "test-dataset-ignore-lock-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	parquetPath := filepath.Join(tempDir, "product-database.parquet")
+	metadataPath := filepath.Join(tempDir, "metadata.json")
+	lockPath := filepath.Join(tempDir, "refresh.lock")
+
+	// Create a mock server that serves test data
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "HEAD" {
+			w.Header().Set("ETag", "test-etag")
+			w.Header().Set("Content-Length", "1000")
+			w.WriteHeader(http.StatusOK)
+		} else if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("test parquet data"))
+		}
+	}))
+	defer mockServer.Close()
+
+	// Create a lock file to simulate another instance running
+	lockFile, err := os.Create(lockPath)
+	require.NoError(t, err)
+	lockFile.Close()
+
+	// Verify lock file exists
+	_, err = os.Stat(lockPath)
+	require.NoError(t, err)
+
+	t.Run("without IGNORE_LOCK should wait", func(t *testing.T) {
+		// Create config without IgnoreLock
+		cfg := &config.Config{
+			DisableRemoteCheck: false,
+			IgnoreLock:         false,
+		}
+
+		logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		manager := NewManager(mockServer.URL, parquetPath, metadataPath, lockPath, cfg, logger)
+
+		// This should timeout quickly since we're not going to complete the download
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		downloadErr := manager.downloadWithLock(ctx)
+		// Should get a timeout or context cancelled error
+		assert.Error(t, downloadErr)
+	})
+
+	t.Run("with IGNORE_LOCK should force download", func(t *testing.T) {
+		// Recreate lock file in case it was removed
+		lockFile, err := os.Create(lockPath)
+		require.NoError(t, err)
+		lockFile.Close()
+
+		// Create config with IgnoreLock enabled
+		cfg := &config.Config{
+			DisableRemoteCheck: false,
+			IgnoreLock:         true,
+		}
+
+		logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		manager := NewManager(mockServer.URL, parquetPath, metadataPath, lockPath, cfg, logger)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		downloadErr := manager.downloadWithLock(ctx)
+		assert.NoError(t, downloadErr)
+
+		// Verify the file was downloaded
+		_, err = os.Stat(parquetPath)
+		assert.NoError(t, err)
+
+		// Verify lock file was removed (or recreated and then removed)
+		_, err = os.Stat(lockPath)
+		assert.True(t, os.IsNotExist(err))
+	})
+}

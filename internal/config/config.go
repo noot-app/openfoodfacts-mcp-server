@@ -37,6 +37,7 @@ type Config struct {
 	// Refresh behavior
 	RefreshIntervalSeconds int
 	DisableRemoteCheck     bool
+	IgnoreLock             bool
 
 	// Server
 	Port string
@@ -125,6 +126,14 @@ func LoadWithFileReader(fileReader FileReader) *Config {
 		}
 	}
 
+	// Parse ignore lock flag
+	ignoreLock := false // Default to false (respect lock)
+	if i := os.Getenv("IGNORE_LOCK"); i != "" {
+		if parsed, err := strconv.ParseBool(i); err == nil {
+			ignoreLock = parsed
+		}
+	}
+
 	return &Config{
 		AuthToken:              getEnv("OPENFOODFACTS_MCP_TOKEN", "super-secret-token"),
 		ParquetURL:             getEnv("PARQUET_URL", "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/product-database.parquet"),
@@ -134,6 +143,7 @@ func LoadWithFileReader(fileReader FileReader) *Config {
 		LockFile:               getEnv("LOCK_FILE", filepath.Join(dataDir, "refresh.lock")),
 		RefreshIntervalSeconds: refreshSeconds,
 		DisableRemoteCheck:     disableRemoteCheck,
+		IgnoreLock:             ignoreLock,
 		Port:                   getEnv("PORT", "8080"),
 		Environment:            getEnv("ENV", "production"),
 

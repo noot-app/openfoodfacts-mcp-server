@@ -171,13 +171,32 @@ func (m *Manager) downloadWithLock(ctx context.Context) error {
 	start := time.Now()
 	m.log.Info("Attempting to acquire download lock", "lock_path", m.lockPath)
 
+	// Check if IGNORE_LOCK is enabled and forcefully remove lock file if it exists
+	if m.config.IgnoreLock {
+		if _, err := os.Stat(m.lockPath); err == nil {
+			m.log.Warn("IGNORE_LOCK enabled, forcefully removing existing lock file", "lock_path", m.lockPath)
+			if err := os.Remove(m.lockPath); err != nil {
+				m.log.Warn("Failed to remove lock file", "error", err)
+			}
+		}
+	}
+
 	// Try to acquire lock
 	lockFile, err := acquireLock(m.lockPath)
 	if err != nil {
-		m.log.Info("Another instance is downloading, waiting", "lock_path", m.lockPath)
-		return m.waitForDownload(ctx)
+		if m.config.IgnoreLock {
+			m.log.Warn("IGNORE_LOCK enabled but still failed to acquire lock, proceeding anyway", "error", err)
+			// Continue with download without lock
+		} else {
+			m.log.Info("Another instance is downloading, waiting", "lock_path", m.lockPath)
+			return m.waitForDownload(ctx)
+		}
 	}
-	defer releaseLock(lockFile, m.lockPath)
+
+	// Only defer lock release if we successfully acquired it
+	if lockFile != nil {
+		defer releaseLock(lockFile, m.lockPath)
+	}
 
 	m.log.Info("Lock acquired, starting download", "duration", time.Since(start))
 

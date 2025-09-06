@@ -1,5 +1,5 @@
 {
-    "$schema": "https://railway.app/railway.schema.json",
+    "$schema": "https://railway.com/railway.schema.json",
     "build": {
         "builder": "DOCKERFILE",
         "dockerfilePath": "Dockerfile"
@@ -7,17 +7,23 @@
     "deploy": {
         "runtime": "V2",
         "numReplicas": 1,
-        "sleepApplication": true,
+        "limitOverride": {
+            "containers": {
+                "cpu": 4
+            }
+        },
         "overlapSeconds": 30,
         "drainingSeconds": 30,
+        "healthcheckPath": "/health",
+        "sleepApplication": true,
+        "useLegacyStacker": false,
         "multiRegionConfig": {
             "us-west2": {
                 "numReplicas": 1
             }
         },
         "restartPolicyType": "ON_FAILURE",
-        "restartPolicyMaxRetries": 5,
-        "healthcheckPath": "/health",
-        "healthcheckTimeout": 60
+        "healthcheckTimeout": 60,
+        "restartPolicyMaxRetries": 5
     }
 }
