@@ -6,6 +6,7 @@ tmp/
 LICENSE
 README.md
 vendor_bin/
+.deploy.env
 .env
 .env.*
 .vscode/
