@@ -186,8 +186,12 @@ func (m *Manager) downloadWithLock(ctx context.Context) error {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	// Download to temporary file
-	tmpPath := m.parquetPath + ".tmp"
+	// Download to temporary file in current working directory to avoid volume constraints
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+	tmpPath := filepath.Join(cwd, "product-database.parquet.tmp")
 	if err := m.downloadFile(ctx, tmpPath); err != nil {
 		os.Remove(tmpPath)
 		return err
@@ -225,11 +229,24 @@ func (m *Manager) downloadWithLock(ctx context.Context) error {
 		m.log.Warn("Failed to save metadata", "error", err)
 	}
 
-	// Atomic rename
-	if err := os.Rename(tmpPath, m.parquetPath); err != nil {
-		os.Remove(tmpPath)
-		return fmt.Errorf("failed to rename file: %w", err)
+	// Atomic file replacement: remove old file and copy new one
+	// This minimizes the time window where the file doesn't exist
+	if _, err := os.Stat(m.parquetPath); err == nil {
+		// Remove existing file first
+		if err := os.Remove(m.parquetPath); err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("failed to remove existing file: %w", err)
+		}
 	}
+
+	// Copy from temp location to final location
+	if err := m.copyFile(tmpPath, m.parquetPath); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to copy file: %w", err)
+	}
+
+	// Clean up temporary file
+	os.Remove(tmpPath)
 
 	m.log.Info("Dataset downloaded successfully", "size", stat.Size(), "sha256", sha[:16]+"...", "duration", time.Since(start))
 	return nil
@@ -345,6 +362,24 @@ func acquireLock(lockPath string) (*os.File, error) {
 func releaseLock(f *os.File, lockPath string) {
 	f.Close()
 	os.Remove(lockPath)
+}
+
+// copyFile copies a file from src to dst
+func (m *Manager) copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	return err
 }
 
 // computeSHA256 computes the SHA256 hash of a file

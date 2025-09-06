@@ -100,6 +100,86 @@ func (e *Engine) Close() error {
 	return e.db.Close()
 }
 
+// queryWithRetry executes a query with retry logic to handle brief file unavailability
+func (e *Engine) queryWithRetry(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	maxRetries := 3
+	baseDelay := 100 * time.Millisecond
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		rows, err := e.db.QueryContext(ctx, query, args...)
+		if err == nil {
+			return rows, nil
+		}
+
+		// Check if this is a file access error that might be temporary
+		if strings.Contains(err.Error(), "No such file") ||
+			strings.Contains(err.Error(), "cannot open") ||
+			strings.Contains(err.Error(), "file not found") {
+
+			if attempt < maxRetries-1 {
+				delay := baseDelay * time.Duration(1<<attempt) // exponential backoff
+				e.log.Debug("Query failed with file access error, retrying",
+					"attempt", attempt+1, "delay", delay, "error", err)
+
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(delay):
+					continue
+				}
+			}
+		}
+
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("query failed after %d attempts", maxRetries)
+}
+
+// queryRowWithRetry executes a QueryRow with retry logic
+func (e *Engine) queryRowWithRetry(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	maxRetries := 3
+	baseDelay := 100 * time.Millisecond
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		row := e.db.QueryRowContext(ctx, query, args...)
+
+		// For QueryRow, we can't easily detect file errors until we scan
+		// So we'll attempt the scan and retry if needed
+		var testScan interface{}
+		err := row.Scan(&testScan)
+
+		if err == nil || err == sql.ErrNoRows {
+			// Success or expected no rows - return a fresh row for the caller
+			return e.db.QueryRowContext(ctx, query, args...)
+		}
+
+		// Check if this is a file access error that might be temporary
+		if strings.Contains(err.Error(), "No such file") ||
+			strings.Contains(err.Error(), "cannot open") ||
+			strings.Contains(err.Error(), "file not found") {
+
+			if attempt < maxRetries-1 {
+				delay := baseDelay * time.Duration(1<<attempt)
+				e.log.Debug("QueryRow failed with file access error, retrying",
+					"attempt", attempt+1, "delay", delay, "error", err)
+
+				select {
+				case <-ctx.Done():
+					return row // Return the failed row, caller will handle context cancellation
+				case <-time.After(delay):
+					continue
+				}
+			}
+		}
+
+		return row // Return the failed row for the caller to handle
+	}
+
+	// This shouldn't be reached, but return a fresh attempt
+	return e.db.QueryRowContext(ctx, query, args...)
+}
+
 // convertPythonListToJSON converts Python-like list format to valid JSON
 // OpenFoodFacts stores data in Python format with single quotes and NULL values
 func convertPythonListToJSON(pythonStr string) string {
@@ -312,7 +392,7 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 	e.log.Debug("Query built", "duration", time.Since(queryBuildStart), "sql_length", len(query))
 
 	queryStart := time.Now()
-	rows, err := e.db.QueryContext(ctx, query, args...)
+	rows, err := e.queryWithRetry(ctx, query, args...)
 	if err != nil {
 		e.log.Error("DuckDB query failed", "error", err, "duration", time.Since(queryStart))
 		return nil, fmt.Errorf("query failed: %w", err)
@@ -401,7 +481,7 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 		WHERE code = ?
 		LIMIT 1`
 
-	rows, err := e.db.QueryContext(ctx, query, e.parquetPath, barcode)
+	rows, err := e.queryWithRetry(ctx, query, e.parquetPath, barcode)
 	if err != nil {
 		return nil, fmt.Errorf("barcode query failed: %w", err)
 	}
@@ -464,7 +544,7 @@ func (e *Engine) TestConnection(ctx context.Context) error {
 	// Test basic connectivity and get file stats
 	query := `SELECT COUNT(*) FROM read_parquet(?)`
 	var count int64
-	err := e.db.QueryRowContext(ctx, query, e.parquetPath).Scan(&count)
+	err := e.queryRowWithRetry(ctx, query, e.parquetPath).Scan(&count)
 	if err != nil {
 		return fmt.Errorf("failed to test parquet file access: %w", err)
 	}
@@ -494,7 +574,7 @@ func (e *Engine) analyzeParquetStructure(ctx context.Context) {
 	FROM read_parquet(?)`
 
 	var totalRows, uniqueProducts int64
-	err := e.db.QueryRowContext(ctx, statsQuery, e.parquetPath).Scan(&totalRows, &uniqueProducts)
+	err := e.queryRowWithRetry(ctx, statsQuery, e.parquetPath).Scan(&totalRows, &uniqueProducts)
 	if err != nil {
 		e.log.Warn("Could not get parquet statistics", "error", err)
 		return
@@ -502,7 +582,7 @@ func (e *Engine) analyzeParquetStructure(ctx context.Context) {
 
 	// Try to get parquet metadata if available
 	metadataQuery := `SELECT * FROM parquet_schema(?) LIMIT 1`
-	rows, err := e.db.QueryContext(ctx, metadataQuery, e.parquetPath)
+	rows, err := e.queryWithRetry(ctx, metadataQuery, e.parquetPath)
 	if err != nil {
 		e.log.Warn("Could not analyze parquet schema", "error", err)
 	} else {
