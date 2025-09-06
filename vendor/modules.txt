@@ -93,7 +93,7 @@ github.com/marcboeker/go-duckdb/mapping
 # github.com/marcboeker/go-duckdb/v2 v2.3.6
 ## explicit; go 1.24
 github.com/marcboeker/go-duckdb/v2
-# github.com/modelcontextprotocol/go-sdk v0.3.1
+# github.com/modelcontextprotocol/go-sdk v0.4.0
 ## explicit; go 1.23.0
 github.com/modelcontextprotocol/go-sdk/auth
 github.com/modelcontextprotocol/go-sdk/internal/jsonrpc2
