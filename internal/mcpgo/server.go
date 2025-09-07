@@ -48,19 +48,20 @@ func NewServer(queryEngine query.QueryEngine, authenticator *auth.BearerTokenAut
 func (s *Server) addTools() {
 	// Search products by brand and name tool
 	searchTool := mcp.NewTool("search_products_by_brand_and_name",
-		mcp.WithDescription("Search for products by name and optional brand filter"),
+		mcp.WithDescription("Search for branded products by their brand and product name"),
 		mcp.WithString("name",
 			mcp.Required(),
 			mcp.Description("Product name to search for"),
 		),
 		mcp.WithString("brand",
-			mcp.Description("Brand name to filter by (optional)"),
+			mcp.Required(),
+			mcp.Description("Brand name"),
 		),
 		mcp.WithNumber("limit",
-			mcp.Description("Maximum number of results (default: 10, max: 100)"),
-			mcp.DefaultNumber(10),
+			mcp.Description("Maximum number of results (default: 3, max: 10)"),
+			mcp.DefaultNumber(3),
 			mcp.Min(1),
-			mcp.Max(100),
+			mcp.Max(10),
 		),
 	)
 
@@ -85,15 +86,18 @@ func (s *Server) handleSearchProducts(ctx context.Context, request mcp.CallToolR
 		return mcp.NewToolResultError(fmt.Sprintf("Missing required parameter 'name': %v", err)), nil
 	}
 
-	brand := request.GetString("brand", "") // Optional parameter
+	brand, err := request.RequireString("brand") // Required parameter
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing required parameter 'brand': %v", err)), nil
+	}
 
-	limitFloat := request.GetFloat("limit", 10.0)
+	limitFloat := request.GetFloat("limit", 3.0)
 	limit := int(limitFloat)
 	if limit <= 0 {
-		limit = 10
+		limit = 3
 	}
-	if limit > 100 {
-		limit = 100
+	if limit > 10 {
+		limit = 10
 	}
 
 	s.log.Debug("MCP SearchProductsByBrandAndName called",
