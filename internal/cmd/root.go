@@ -6,12 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/auth"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/dataset"
-	mcpserver "github.com/noot-app/openfoodfacts-mcp-server/internal/mcp"
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/mcpgo"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/query"
-	"github.com/noot-app/openfoodfacts-mcp-server/internal/server"
 	"github.com/spf13/cobra"
 )
 
@@ -151,12 +150,11 @@ func runStdioMode(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize query engine
-	queryEngine, err := query.NewQueryEngine(cfg.ParquetPath, cfg, logger)
+	queryEngine, err := query.NewEngine(cfg.ParquetPath, cfg, logger)
 	if err != nil {
 		logger.Error("Failed to create query engine", "error", err)
 		return err
 	}
-	defer queryEngine.Close()
 
 	// Test connection
 	if err := queryEngine.TestConnection(ctx); err != nil {
@@ -164,12 +162,14 @@ func runStdioMode(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Create MCP server
-	mcpSrv := mcpserver.NewServer(cfg, queryEngine, logger)
+	// Create auth (not needed for stdio but required by constructor)
+	authenticator := auth.NewBearerTokenAuth(cfg.AuthToken)
 
-	// Run the MCP server on stdio transport
-	transport := &mcp.StdioTransport{}
-	return mcpSrv.GetMCPServer().Run(context.Background(), transport)
+	// Create MCP server
+	mcpSrv := mcpgo.NewServer(queryEngine, authenticator, logger)
+
+	// Run the MCP server on stdio transport (no auth needed for local use)
+	return mcpSrv.ServeStdio()
 }
 
 // runHTTPMode runs the MCP server in HTTP mode for remote deployment
@@ -189,9 +189,44 @@ func runHTTPMode(cmd *cobra.Command, args []string) error {
 		"transport", "HTTP/JSON-RPC 2.0",
 		"port", cfg.Port)
 
-	// Create and start MCP server in HTTP mode
-	srv := server.NewMCPServer(cfg, logger)
-	return srv.Start(context.Background())
+	// Initialize dataset manager
+	dataManager := dataset.NewManager(
+		cfg.ParquetURL,
+		cfg.ParquetPath,
+		cfg.MetadataPath,
+		cfg.LockFile,
+		cfg,
+		logger,
+	)
+
+	// Ensure dataset is available
+	ctx := context.Background()
+	if err := dataManager.EnsureDataset(ctx); err != nil {
+		logger.Error("Failed to ensure dataset", "error", err)
+		return err
+	}
+
+	// Create query engine
+	queryEngine, err := query.NewEngine(cfg.ParquetPath, cfg, logger)
+	if err != nil {
+		logger.Error("Failed to create query engine", "error", err)
+		return err
+	}
+
+	// Test connection
+	if err := queryEngine.TestConnection(ctx); err != nil {
+		logger.Error("Failed to test connection", "error", err)
+		return err
+	}
+
+	// Create auth
+	authenticator := auth.NewBearerTokenAuth(cfg.AuthToken)
+
+	// Create MCP server
+	mcpSrv := mcpgo.NewServer(queryEngine, authenticator, logger)
+
+	// Run the MCP server on HTTP transport with auth
+	return mcpSrv.ServeHTTP(":" + cfg.Port)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
