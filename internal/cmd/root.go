@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -76,9 +75,7 @@ func init() {
 // runFetchDBMode fetches the database and exits
 func runFetchDBMode(cmd *cobra.Command, args []string) error {
 	// Setup logger for fetch mode
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
+	logger := config.NewTextLogger(os.Stdout)
 
 	// Load configuration
 	cfg := config.Load()
@@ -119,9 +116,7 @@ func runFetchDBMode(cmd *cobra.Command, args []string) error {
 // runStdioMode runs the MCP server in stdio mode for Claude Desktop
 func runStdioMode(cmd *cobra.Command, args []string) error {
 	// Use a logger that writes to stderr to avoid interfering with stdio MCP communication
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelWarn, // Only show warnings and errors in stdio mode
-	}))
+	logger := config.NewLogger(true) // true for stdio mode
 
 	// Load configuration
 	cfg := config.Load()
@@ -175,9 +170,7 @@ func runStdioMode(cmd *cobra.Command, args []string) error {
 // runHTTPMode runs the MCP server in HTTP mode for remote deployment
 func runHTTPMode(cmd *cobra.Command, args []string) error {
 	// Setup structured logging for HTTP mode
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
+	logger := config.NewLogger(false) // false for HTTP mode
 
 	// Load configuration
 	cfg := config.Load()

@@ -3,7 +3,6 @@ package query
 import (
 	"context"
 	"database/sql"
-	"log/slog"
 	"os"
 	"testing"
 
@@ -12,7 +11,7 @@ import (
 )
 
 func TestNewMockEngine(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := config.NewTestLogger(os.Stdout, "DEBUG")
 
 	engine := NewMockEngine(logger)
 	assert.NotNil(t, engine)
@@ -70,7 +69,7 @@ func TestSearchProductsByBrandAndName(t *testing.T) {
 		t.Skip("Database file not found, skipping integration test")
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := config.NewTestLogger(os.Stdout, "DEBUG")
 	cfg := &config.Config{}
 	engine, err := NewEngine("../../data/product-database.parquet", cfg, logger)
 	if err != nil {
@@ -180,7 +179,7 @@ func TestConvertPythonListToJSON(t *testing.T) {
 }
 
 func TestParseNutrimentsJSON(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := config.NewTestLogger(os.Stdout, "DEBUG")
 	cfg := &config.Config{}
 	engine, err := NewEngine("test.parquet", cfg, logger)
 	if err != nil {
@@ -321,7 +320,7 @@ func BenchmarkConvertPythonListToJSON(b *testing.B) {
 
 // TestParseNutrimentsJSON_PerformanceBenchmark tests overall parsing performance
 func BenchmarkParseNutrimentsJSON(b *testing.B) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	logger := config.NewTestLogger(os.Stdout, "ERROR")
 	cfg := &config.Config{}
 	engine, err := NewEngine("test.parquet", cfg, logger)
 	if err != nil {
@@ -345,7 +344,7 @@ func BenchmarkParseNutrimentsJSON(b *testing.B) {
 }
 
 func TestMockEngine_SearchByBarcode(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := config.NewTestLogger(os.Stdout, "DEBUG")
 	engine := NewMockEngine(logger)
 	defer engine.Close()
 
@@ -364,7 +363,7 @@ func TestMockEngine_SearchByBarcode(t *testing.T) {
 }
 
 func TestMockEngine_TestConnection(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := config.NewTestLogger(os.Stdout, "DEBUG")
 	engine := NewMockEngine(logger)
 	defer engine.Close()
 
@@ -430,7 +429,7 @@ func TestEngine_SearchByBarcode_Integration(t *testing.T) {
 }
 
 func TestEngine_TestConnection_WithInvalidFile(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := config.NewTestLogger(os.Stdout, "DEBUG")
 
 	// Create a minimal config for testing
 	cfg := &config.Config{
