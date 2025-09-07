@@ -13,6 +13,7 @@ import (
 
 	_ "github.com/marcboeker/go-duckdb/v2"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/types"
 )
 
 // Query engine constants
@@ -281,7 +282,7 @@ func (e *Engine) parseNutrimentsJSON(nutrimentsStr sql.NullString) map[string]in
 }
 
 // SearchProductsByBrandAndName searches for products by name and brand
-func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]Product, error) {
+func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]types.Product, error) {
 	totalStart := time.Now()
 	e.log.Debug("SearchProductsByBrandAndName starting", "name", name, "brand", brand, "limit", limit)
 
@@ -417,10 +418,10 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 	scanStart := time.Now()
 	rowCount := 0
 
-	var results []Product
+	var results []types.Product
 	for rows.Next() {
 		rowCount++
-		var p Product
+		var p types.Product
 		var nutrimentsStr sql.NullString
 		var ingredientsStr sql.NullString
 		var linkStr sql.NullString
@@ -494,7 +495,7 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 }
 
 // SearchByBarcode searches for a product by barcode (exact match)
-func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product, error) {
+func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*types.Product, error) {
 	start := time.Now()
 	e.log.Debug("SearchByBarcode starting", "barcode", barcode)
 
@@ -529,7 +530,7 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 		return nil, nil
 	}
 
-	var p Product
+	var p types.Product
 	var nutrimentsStr sql.NullString
 	var ingredientsStr sql.NullString
 	var linkStr sql.NullString

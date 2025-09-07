@@ -4,11 +4,13 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/types"
 )
 
 // MockEngine is a mock implementation for testing
 type MockEngine struct {
-	products []Product
+	products []types.Product
 	err      error
 	log      *slog.Logger
 }
@@ -17,7 +19,7 @@ type MockEngine struct {
 func NewMockEngine(logger *slog.Logger) *MockEngine {
 	return &MockEngine{
 		log: logger,
-		products: []Product{
+		products: []types.Product{
 			{
 				Code:        "3017620422003",
 				ProductName: "Nutella",
@@ -50,12 +52,12 @@ func NewMockEngine(logger *slog.Logger) *MockEngine {
 }
 
 // SearchProductsByBrandAndName searches for products by name and brand
-func (m *MockEngine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]Product, error) {
+func (m *MockEngine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]types.Product, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
-	var results []Product
+	var results []types.Product
 	for _, product := range m.products {
 		if name != "" && !contains(product.ProductName, name) {
 			continue
@@ -73,7 +75,7 @@ func (m *MockEngine) SearchProductsByBrandAndName(ctx context.Context, name, bra
 }
 
 // SearchByBarcode searches for a product by barcode
-func (m *MockEngine) SearchByBarcode(ctx context.Context, barcode string) (*Product, error) {
+func (m *MockEngine) SearchByBarcode(ctx context.Context, barcode string) (*types.Product, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -103,7 +105,7 @@ func (m *MockEngine) SetError(err error) {
 }
 
 // SetProducts sets the products to be returned by the mock
-func (m *MockEngine) SetProducts(products []Product) {
+func (m *MockEngine) SetProducts(products []types.Product) {
 	m.products = products
 }
 
