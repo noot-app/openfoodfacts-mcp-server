@@ -3,7 +3,6 @@ package dataset
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -159,7 +158,7 @@ func TestManager_EnsureDataset(t *testing.T) {
 			defer server.Close()
 
 			// Create manager
-			logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+			logger := config.NewTestLogger(os.Stdout, "DEBUG")
 			var testConfig *config.Config
 			if tt.useDisabledRemoteCheck {
 				testConfig = createTestConfigWithDisabledRemoteCheck()
@@ -265,7 +264,7 @@ func TestMetadata_SaveLoad(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := config.NewTestLogger(os.Stdout, "DEBUG")
 	manager := NewManager(
 		"https://example.com",
 		filepath.Join(tmpDir, "test.parquet"),
@@ -335,7 +334,7 @@ func TestManager_IgnoreLock(t *testing.T) {
 			IgnoreLock:         false,
 		}
 
-		logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		logger := config.NewTestLogger(os.Stdout, "INFO")
 		manager := NewManager(mockServer.URL, parquetPath, metadataPath, lockPath, cfg, logger)
 
 		// This should timeout quickly since we're not going to complete the download
@@ -359,7 +358,7 @@ func TestManager_IgnoreLock(t *testing.T) {
 			IgnoreLock:         true,
 		}
 
-		logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		logger := config.NewTestLogger(os.Stdout, "INFO")
 		manager := NewManager(mockServer.URL, parquetPath, metadataPath, lockPath, cfg, logger)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -407,7 +406,7 @@ func TestManager_EnsureDataset_ExistingFileWithoutMetadata(t *testing.T) {
 
 	// Create manager with remote checks enabled
 	cfg := createTestConfig()
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := config.NewTestLogger(os.Stdout, "INFO")
 	manager := NewManager(mockServer.URL, parquetPath, metadataPath, lockPath, cfg, logger)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

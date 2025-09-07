@@ -48,14 +48,14 @@ func NewServer(queryEngine query.QueryEngine, authenticator *auth.BearerTokenAut
 func (s *Server) addTools() {
 	// Search products by brand and name tool
 	searchTool := mcp.NewTool("search_products_by_brand_and_name",
-		mcp.WithDescription("Search for branded products by their brand and product name"),
+		mcp.WithDescription("Search for branded products by their brand and product name. This tool can only be used if brand and product name are both provided and non-empty."),
 		mcp.WithString("name",
 			mcp.Required(),
-			mcp.Description("Product name to search for"),
+			mcp.Description("Product name to search for. Required and must be a non-empty string."),
 		),
 		mcp.WithString("brand",
 			mcp.Required(),
-			mcp.Description("Brand name"),
+			mcp.Description("Brand name to search for. Required and must be a non-empty string."),
 		),
 		mcp.WithNumber("limit",
 			mcp.Description("Maximum number of results (default: 3, max: 10)"),
