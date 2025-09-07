@@ -18,12 +18,15 @@ type QueryEngine interface {
 
 // Product represents a product from the Open Food Facts dataset
 type Product struct {
-	Code        string                 `json:"code"`
-	ProductName string                 `json:"product_name"`
-	Brands      string                 `json:"brands"`
-	Nutriments  map[string]interface{} `json:"nutriments"`
-	Link        string                 `json:"link"`
-	Ingredients interface{}            `json:"ingredients"`
+	Code                string                 `json:"code"`
+	ProductName         string                 `json:"product_name"`
+	Brands              string                 `json:"brands"`
+	Nutriments          map[string]interface{} `json:"nutriments"`
+	Link                string                 `json:"link"`
+	Ingredients         interface{}            `json:"ingredients"`
+	ServingQuantity     interface{}            `json:"serving_quantity,omitempty"`
+	ServingQuantityUnit string                 `json:"serving_quantity_unit,omitempty"`
+	ServingSize         string                 `json:"serving_size,omitempty"`
 }
 
 // NewQueryEngine creates a new query engine

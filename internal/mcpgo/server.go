@@ -60,12 +60,15 @@ type Ingredient struct {
 
 // Product represents a food product from OpenFoodFacts
 type Product struct {
-	Code        string               `json:"code"`
-	ProductName string               `json:"product_name"`
-	Brands      string               `json:"brands"`
-	Nutriments  map[string]Nutriment `json:"nutriments"`
-	Link        string               `json:"link"`
-	Ingredients []Ingredient         `json:"ingredients"`
+	Code                string               `json:"code"`
+	ProductName         string               `json:"product_name"`
+	Brands              string               `json:"brands"`
+	Nutriments          map[string]Nutriment `json:"nutriments"`
+	Link                string               `json:"link"`
+	Ingredients         []Ingredient         `json:"ingredients"`
+	ServingQuantity     interface{}          `json:"serving_quantity,omitempty"`
+	ServingQuantityUnit string               `json:"serving_quantity_unit,omitempty"`
+	ServingSize         string               `json:"serving_size,omitempty"`
 }
 
 // SearchProductsResponse represents the response from search_products_by_brand_and_name
