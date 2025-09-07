@@ -65,10 +65,12 @@ func (s *Server) addTools() {
 		mcp.WithDescription("Search for branded products by their brand and product name. This tool can only be used if brand and product name are both provided and non-empty."),
 		mcp.WithString("name",
 			mcp.Required(),
+			mcp.MinLength(1), // must be at least 1 char
 			mcp.Description("Product name to search for. Required and must be a non-empty string."),
 		),
 		mcp.WithString("brand",
 			mcp.Required(),
+			mcp.MinLength(1), // must be at least 1 char
 			mcp.Description("Brand name to search for. Required and must be a non-empty string."),
 		),
 		mcp.WithNumber("limit",
