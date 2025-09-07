@@ -124,6 +124,7 @@ func (s *Server) addTools() {
 			mcp.Max(10),
 		),
 		mcp.WithOutputSchema[SearchProductsResponse](),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 
 	s.mcpServer.AddTool(searchTool, s.handleSearchProducts)
@@ -136,6 +137,7 @@ func (s *Server) addTools() {
 			mcp.Description("The barcode (UPC/EAN) to search for"),
 		),
 		mcp.WithOutputSchema[SearchBarcodeResponse](),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 
 	s.mcpServer.AddTool(barcodeTool, s.handleSearchByBarcode)
