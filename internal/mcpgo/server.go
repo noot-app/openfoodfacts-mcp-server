@@ -21,6 +21,66 @@ type Server struct {
 	log         *slog.Logger
 }
 
+// Nutriment represents nutritional information for a product
+type Nutriment struct {
+	Per100g         *float64 `json:"100g"`
+	Name            string   `json:"name"`
+	PreparedPer100g *float64 `json:"prepared_100g"`
+	PreparedServing *float64 `json:"prepared_serving"`
+	PreparedUnit    *string  `json:"prepared_unit"`
+	PreparedValue   *float64 `json:"prepared_value"`
+	Serving         *float64 `json:"serving"`
+	Unit            *string  `json:"unit"`
+	Value           *float64 `json:"value"`
+}
+
+// Ingredient represents an ingredient in a product
+type Ingredient struct {
+	CiqualFoodCode      *string      `json:"ciqual_food_code"`
+	CiqualProxyFoodCode *string      `json:"ciqual_proxy_food_code"`
+	EcobalyseCode       *string      `json:"ecobalyse_code"`
+	EcobalyseProxyCode  *string      `json:"ecobalyse_proxy_code"`
+	FromPalmOil         *string      `json:"from_palm_oil"`
+	ID                  string       `json:"id"`
+	Ingredients         []Ingredient `json:"ingredients"`
+	IsInTaxonomy        *int         `json:"is_in_taxonomy"`
+	Labels              *string      `json:"labels"`
+	Origins             *string      `json:"origins"`
+	Percent             *float64     `json:"percent"`
+	PercentEstimate     *float64     `json:"percent_estimate"`
+	PercentMax          *float64     `json:"percent_max"`
+	PercentMin          *float64     `json:"percent_min"`
+	Processing          *string      `json:"processing"`
+	Quantity            *string      `json:"quantity"`
+	QuantityG           *float64     `json:"quantity_g"`
+	Text                string       `json:"text"`
+	Vegan               *string      `json:"vegan"`
+	Vegetarian          *string      `json:"vegetarian"`
+}
+
+// Product represents a food product from OpenFoodFacts
+type Product struct {
+	Code        string               `json:"code"`
+	ProductName string               `json:"product_name"`
+	Brands      string               `json:"brands"`
+	Nutriments  map[string]Nutriment `json:"nutriments"`
+	Link        string               `json:"link"`
+	Ingredients []Ingredient         `json:"ingredients"`
+}
+
+// SearchProductsResponse represents the response from search_products_by_brand_and_name
+type SearchProductsResponse struct {
+	Found    bool      `json:"found"`
+	Count    int       `json:"count"`
+	Products []Product `json:"products"`
+}
+
+// SearchBarcodeResponse represents the response from search_by_barcode
+type SearchBarcodeResponse struct {
+	Found   bool     `json:"found"`
+	Product *Product `json:"product,omitempty"`
+}
+
 // NewServer creates a new MCP server with the mark3labs SDK
 func NewServer(queryEngine query.QueryEngine, authenticator *auth.BearerTokenAuth, logger *slog.Logger) *Server {
 	// Create MCP server
@@ -63,6 +123,7 @@ func (s *Server) addTools() {
 			mcp.Min(1),
 			mcp.Max(10),
 		),
+		mcp.WithOutputSchema[SearchProductsResponse](),
 	)
 
 	s.mcpServer.AddTool(searchTool, s.handleSearchProducts)
@@ -74,6 +135,7 @@ func (s *Server) addTools() {
 			mcp.Required(),
 			mcp.Description("The barcode (UPC/EAN) to search for"),
 		),
+		mcp.WithOutputSchema[SearchBarcodeResponse](),
 	)
 
 	s.mcpServer.AddTool(barcodeTool, s.handleSearchByBarcode)
