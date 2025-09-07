@@ -341,6 +341,72 @@ func performSingleToolCall(requestID int) error {
 		return fmt.Errorf("response doesn't contain expected product data: %s", text)
 	}
 
+	// Debug: print the raw response text first
+	// fmt.Printf("Raw response text: %s\n", text)
+
+	// Parse the response to check for specific attributes on OLIPOP Cream Soda
+	var productResponse map[string]interface{}
+	if err := json.Unmarshal([]byte(text), &productResponse); err != nil {
+		return fmt.Errorf("failed to parse product response JSON: %w", err)
+	}
+
+	products, ok := productResponse["products"].([]interface{})
+	if !ok || len(products) == 0 {
+		return fmt.Errorf("no products found in response")
+	}
+
+	// Check the first product for OLIPOP Cream Soda serving attributes
+	firstProduct, productOk := products[0].(map[string]interface{})
+	if !productOk {
+		return fmt.Errorf("first product is not a valid object")
+	}
+
+	// Validate serving_quantity exists and has expected value for OLIPOP Cream Soda
+	servingQuantity, hasServingQuantity := firstProduct["serving_quantity"]
+	if !hasServingQuantity {
+		return fmt.Errorf("serving_quantity attribute missing from OLIPOP Cream Soda")
+	}
+
+	// Check that serving_quantity is "355" (as string) or 355 (as number) for OLIPOP Cream Soda
+	servingQuantityStr := fmt.Sprintf("%v", servingQuantity)
+	if servingQuantityStr != "355" {
+		return fmt.Errorf("serving_quantity should be '355' for OLIPOP Cream Soda, got: %v", servingQuantity)
+	}
+
+	// Validate serving_quantity_unit exists and is "ml" (optional field)
+	servingQuantityUnit, hasServingQuantityUnit := firstProduct["serving_quantity_unit"]
+	if hasServingQuantityUnit && servingQuantityUnit != "" && servingQuantityUnit != nil {
+		if servingQuantityUnit != "ml" {
+			return fmt.Errorf("serving_quantity_unit should be 'ml' for OLIPOP Cream Soda, got: %v", servingQuantityUnit)
+		}
+	}
+
+	// Validate serving_size exists and contains expected content
+	servingSize, hasServingSize := firstProduct["serving_size"]
+	if !hasServingSize {
+		return fmt.Errorf("serving_size attribute missing from OLIPOP Cream Soda")
+	}
+	servingSizeStr, ok := servingSize.(string)
+	if !ok {
+		return fmt.Errorf("serving_size should be a string, got: %T", servingSize)
+	}
+	if !strings.Contains(servingSizeStr, "355") || !strings.Contains(servingSizeStr, "ml") {
+		return fmt.Errorf("serving_size should contain '355' and 'ml' for OLIPOP Cream Soda, got: %s", servingSizeStr)
+	}
+
+	// Print successful validation
+	fmt.Printf("    ✓ Serving attributes validated for OLIPOP Cream Soda\n")
+	fmt.Printf("    ✓ serving_quantity: %v\n", servingQuantity)
+	if hasServingQuantityUnit && servingQuantityUnit != "" && servingQuantityUnit != nil {
+		fmt.Printf("    ✓ serving_quantity_unit: %v\n", servingQuantityUnit)
+	} else {
+		fmt.Printf("    ℹ serving_quantity_unit: not available\n")
+	}
+	fmt.Printf("    ✓ serving_size: %s\n", servingSizeStr)
+
+	// print the full response for debugging
+	// fmt.Printf("Full response: %s\n", text)
+
 	return nil
 }
 

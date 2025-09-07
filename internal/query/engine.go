@@ -13,6 +13,7 @@ import (
 
 	_ "github.com/marcboeker/go-duckdb/v2"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/types"
 )
 
 // Query engine constants
@@ -281,7 +282,7 @@ func (e *Engine) parseNutrimentsJSON(nutrimentsStr sql.NullString) map[string]in
 }
 
 // SearchProductsByBrandAndName searches for products by name and brand
-func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]Product, error) {
+func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]types.Product, error) {
 	totalStart := time.Now()
 	e.log.Debug("SearchProductsByBrandAndName starting", "name", name, "brand", brand, "limit", limit)
 
@@ -306,7 +307,10 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 				CAST(brands AS VARCHAR) as brands_text,
 				CAST(nutriments AS VARCHAR) as nutriments_json,
 				link,
-				CAST(ingredients AS VARCHAR) as ingredients_json
+				CAST(ingredients AS VARCHAR) as ingredients_json,
+				serving_quantity,
+				product_quantity_unit,
+				serving_size
 			FROM read_parquet(?)
 			-- Performance: filter on simpler field first (brands is typically smaller)
 			WHERE brands IS NOT NULL 
@@ -334,7 +338,10 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 			CAST(brands AS VARCHAR) as brands_text,
 			CAST(nutriments AS VARCHAR) as nutriments_json,
 			link,
-			CAST(ingredients AS VARCHAR) as ingredients_json
+			CAST(ingredients AS VARCHAR) as ingredients_json,
+			serving_quantity,
+			product_quantity_unit,
+			serving_size
 		FROM read_parquet(?)
 		WHERE brands IS NOT NULL 
 		  AND CAST(brands AS VARCHAR) ILIKE ?
@@ -357,7 +364,10 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 				CAST(brands AS VARCHAR) as brands_text,
 				CAST(nutriments AS VARCHAR) as nutriments_json,
 				link,
-				CAST(ingredients AS VARCHAR) as ingredients_json
+				CAST(ingredients AS VARCHAR) as ingredients_json,
+				serving_quantity,
+				product_quantity_unit,
+				serving_size
 			FROM read_parquet(?)
 			WHERE product_name IS NOT NULL
 		)
@@ -381,7 +391,10 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 			CAST(brands AS VARCHAR) as brands_text,
 			CAST(nutriments AS VARCHAR) as nutriments_json,
 			link,
-			CAST(ingredients AS VARCHAR) as ingredients_json
+			CAST(ingredients AS VARCHAR) as ingredients_json,
+			serving_quantity,
+			product_quantity_unit,
+			serving_size
 		FROM read_parquet(?)
 		WHERE product_name IS NOT NULL  -- Performance: filter out nulls early
 		ORDER BY code  -- Performance: leverage potential ordering
@@ -405,18 +418,21 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 	scanStart := time.Now()
 	rowCount := 0
 
-	var results []Product
+	var results []types.Product
 	for rows.Next() {
 		rowCount++
-		var p Product
+		var p types.Product
 		var nutrimentsStr sql.NullString
 		var ingredientsStr sql.NullString
 		var linkStr sql.NullString
 		var codeStr sql.NullString
 		var productNameStr sql.NullString
 		var brandsStr sql.NullString
+		var servingQuantity sql.NullString
+		var productQuantityUnit sql.NullString
+		var servingSize sql.NullString
 
-		if err := rows.Scan(&codeStr, &productNameStr, &brandsStr, &nutrimentsStr, &linkStr, &ingredientsStr); err != nil {
+		if err := rows.Scan(&codeStr, &productNameStr, &brandsStr, &nutrimentsStr, &linkStr, &ingredientsStr, &servingQuantity, &productQuantityUnit, &servingSize); err != nil {
 			continue // Skip malformed rows
 		}
 
@@ -432,6 +448,24 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 		}
 		if linkStr.Valid {
 			p.Link = linkStr.String
+		}
+		if productQuantityUnit.Valid {
+			p.ServingQuantityUnit = productQuantityUnit.String
+		}
+		if servingSize.Valid {
+			p.ServingSize = servingSize.String
+		}
+
+		// Handle serving_quantity which can be string, int, float, or null
+		if servingQuantity.Valid && servingQuantity.String != "" {
+			// Try to parse as JSON to handle various types
+			var qty interface{}
+			if err := json.Unmarshal([]byte(servingQuantity.String), &qty); err != nil {
+				// If JSON parsing fails, use the raw string
+				p.ServingQuantity = servingQuantity.String
+			} else {
+				p.ServingQuantity = qty
+			}
 		}
 
 		// Parse JSON fields
@@ -461,7 +495,7 @@ func (e *Engine) SearchProductsByBrandAndName(ctx context.Context, name, brand s
 }
 
 // SearchByBarcode searches for a product by barcode (exact match)
-func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product, error) {
+func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*types.Product, error) {
 	start := time.Now()
 	e.log.Debug("SearchByBarcode starting", "barcode", barcode)
 
@@ -477,7 +511,10 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 			CAST(brands AS VARCHAR) as brands_text,
 			CAST(nutriments AS VARCHAR) as nutriments_json,
 			link,
-			CAST(ingredients AS VARCHAR) as ingredients_json
+			CAST(ingredients AS VARCHAR) as ingredients_json,
+			serving_quantity,
+			product_quantity_unit,
+			serving_size
 		FROM read_parquet(?)
 		WHERE code = ?
 		LIMIT 1`
@@ -493,15 +530,18 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 		return nil, nil
 	}
 
-	var p Product
+	var p types.Product
 	var nutrimentsStr sql.NullString
 	var ingredientsStr sql.NullString
 	var linkStr sql.NullString
 	var codeStr sql.NullString
 	var productNameStr sql.NullString
 	var brandsStr sql.NullString
+	var servingQuantity sql.NullString
+	var productQuantityUnit sql.NullString
+	var servingSize sql.NullString
 
-	if err := rows.Scan(&codeStr, &productNameStr, &brandsStr, &nutrimentsStr, &linkStr, &ingredientsStr); err != nil {
+	if err := rows.Scan(&codeStr, &productNameStr, &brandsStr, &nutrimentsStr, &linkStr, &ingredientsStr, &servingQuantity, &productQuantityUnit, &servingSize); err != nil {
 		e.log.Error("Row scan failed", "error", err)
 		return nil, fmt.Errorf("scan failed: %w", err)
 	}
@@ -518,6 +558,24 @@ func (e *Engine) SearchByBarcode(ctx context.Context, barcode string) (*Product,
 	}
 	if linkStr.Valid {
 		p.Link = linkStr.String
+	}
+	if productQuantityUnit.Valid {
+		p.ServingQuantityUnit = productQuantityUnit.String
+	}
+	if servingSize.Valid {
+		p.ServingSize = servingSize.String
+	}
+
+	// Handle serving_quantity which can be string, int, float, or null
+	if servingQuantity.Valid && servingQuantity.String != "" {
+		// Try to parse as JSON to handle various types
+		var qty interface{}
+		if err := json.Unmarshal([]byte(servingQuantity.String), &qty); err != nil {
+			// If JSON parsing fails, use the raw string
+			p.ServingQuantity = servingQuantity.String
+		} else {
+			p.ServingQuantity = qty
+		}
 	}
 
 	// Parse JSON fields

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -380,7 +381,7 @@ func TestMockEngine_TestConnection(t *testing.T) {
 }
 
 func TestProduct_JSONSerialization(t *testing.T) {
-	product := Product{
+	product := types.Product{
 		Code:        "12345",
 		ProductName: "Test Product",
 		Brands:      "Test Brand",

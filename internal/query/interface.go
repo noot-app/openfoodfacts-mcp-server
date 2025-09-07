@@ -6,24 +6,15 @@ import (
 	"os"
 
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/config"
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/types"
 )
 
 // QueryEngine defines the interface for querying the product database
 type QueryEngine interface {
-	SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]Product, error)
-	SearchByBarcode(ctx context.Context, barcode string) (*Product, error)
+	SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]types.Product, error)
+	SearchByBarcode(ctx context.Context, barcode string) (*types.Product, error)
 	TestConnection(ctx context.Context) error
 	Close() error
-}
-
-// Product represents a product from the Open Food Facts dataset
-type Product struct {
-	Code        string                 `json:"code"`
-	ProductName string                 `json:"product_name"`
-	Brands      string                 `json:"brands"`
-	Nutriments  map[string]interface{} `json:"nutriments"`
-	Link        string                 `json:"link"`
-	Ingredients interface{}            `json:"ingredients"`
 }
 
 // NewQueryEngine creates a new query engine

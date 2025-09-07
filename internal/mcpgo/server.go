@@ -11,6 +11,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/auth"
 	"github.com/noot-app/openfoodfacts-mcp-server/internal/query"
+	"github.com/noot-app/openfoodfacts-mcp-server/internal/types"
 )
 
 // Server wraps the mark3labs MCP server with authentication
@@ -19,6 +20,19 @@ type Server struct {
 	queryEngine query.QueryEngine
 	auth        *auth.BearerTokenAuth
 	log         *slog.Logger
+}
+
+// SearchProductsResponse represents the response from search_products_by_brand_and_name
+type SearchProductsResponse struct {
+	Found    bool            `json:"found"`
+	Count    int             `json:"count"`
+	Products []types.Product `json:"products"`
+}
+
+// SearchBarcodeResponse represents the response from search_by_barcode
+type SearchBarcodeResponse struct {
+	Found   bool           `json:"found"`
+	Product *types.Product `json:"product,omitempty"`
 }
 
 // NewServer creates a new MCP server with the mark3labs SDK
@@ -63,6 +77,8 @@ func (s *Server) addTools() {
 			mcp.Min(1),
 			mcp.Max(10),
 		),
+		mcp.WithOutputSchema[SearchProductsResponse](),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 
 	s.mcpServer.AddTool(searchTool, s.handleSearchProducts)
@@ -74,6 +90,8 @@ func (s *Server) addTools() {
 			mcp.Required(),
 			mcp.Description("The barcode (UPC/EAN) to search for"),
 		),
+		mcp.WithOutputSchema[SearchBarcodeResponse](),
+		mcp.WithIdempotentHintAnnotation(true),
 	)
 
 	s.mcpServer.AddTool(barcodeTool, s.handleSearchByBarcode)
