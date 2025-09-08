@@ -17,18 +17,23 @@ import (
 // responseRecorder wraps http.ResponseWriter to capture response details
 type responseRecorder struct {
 	http.ResponseWriter
-	statusCode   int
-	bytesWritten int
+	statusCode    int
+	bytesWritten  int
+	headerWritten bool
 }
 
 func (r *responseRecorder) WriteHeader(code int) {
+	if r.headerWritten {
+		return // Prevent duplicate WriteHeader calls
+	}
 	r.statusCode = code
+	r.headerWritten = true
 	r.ResponseWriter.WriteHeader(code)
 }
 
 func (r *responseRecorder) Write(data []byte) (int, error) {
-	if r.statusCode == 0 {
-		r.statusCode = http.StatusOK
+	if !r.headerWritten {
+		r.WriteHeader(http.StatusOK)
 	}
 	n, err := r.ResponseWriter.Write(data)
 	r.bytesWritten += n
