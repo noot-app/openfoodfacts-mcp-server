@@ -111,6 +111,14 @@ func (s *Server) handleSearchProducts(ctx context.Context, request mcp.CallToolR
 		return mcp.NewToolResultError(fmt.Sprintf("Missing required parameter 'brand': %v", err)), nil
 	}
 
+	// Validate minimum lengths
+	if len(name) < 1 {
+		return mcp.NewToolResultError("Parameter 'name' must be at least 1 character long"), nil
+	}
+	if len(brand) < 1 {
+		return mcp.NewToolResultError("Parameter 'brand' must be at least 1 character long"), nil
+	}
+
 	limitFloat := request.GetFloat("limit", 3.0)
 	limit := int(limitFloat)
 	if limit <= 0 {
