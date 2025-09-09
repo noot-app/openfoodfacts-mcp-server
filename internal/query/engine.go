@@ -600,20 +600,50 @@ func (e *Engine) TestConnection(ctx context.Context) error {
 	start := time.Now()
 	e.log.Debug("Testing DuckDB connection and parquet file")
 
-	// Test basic connectivity and get file stats
-	query := `SELECT COUNT(*) FROM read_parquet(?)`
-	var count int64
-	err := e.queryRowWithRetry(ctx, query, e.parquetPath).Scan(&count)
+	// For health checks, use a much more efficient query that only reads metadata
+	// instead of scanning the entire file with COUNT(*)
+	query := `SELECT 1 FROM read_parquet(?) LIMIT 1`
+	var dummy int
+	err := e.queryRowWithRetry(ctx, query, e.parquetPath).Scan(&dummy)
 	if err != nil {
 		return fmt.Errorf("failed to test parquet file access: %w", err)
 	}
 
-	// Analyze parquet file structure for performance insights
-	go func() {
-		e.analyzeParquetStructure(context.Background())
-	}()
+	// Only run expensive analysis in background during startup, not health checks
+	// Check if this is likely a health check by looking at duration expectations
+	if time.Since(start) < 100*time.Millisecond {
+		// This was fast, likely just a health check - skip analysis
+		e.log.Debug("Fast connection test completed", "duration", time.Since(start))
+	} else {
+		// This took longer, likely startup - run analysis in background
+		go func() {
+			e.analyzeParquetStructure(context.Background())
+		}()
+		e.log.Info("Connection test completed", "duration", time.Since(start))
+	}
 
-	e.log.Info("Connection test successful", "total_records", count, "duration", time.Since(start))
+	return nil
+}
+
+// HealthCheck performs a lightweight health check suitable for production monitoring
+// This avoids expensive operations like COUNT(*) queries and is optimized for speed
+func (e *Engine) HealthCheck(ctx context.Context) error {
+	start := time.Now()
+	e.log.Debug("Performing lightweight health check")
+
+	// First check if the parquet file exists
+	if _, err := os.Stat(e.parquetPath); err != nil {
+		return fmt.Errorf("parquet file not accessible: %w", err)
+	}
+
+	// Test basic database connectivity with a simple query
+	var result int
+	err := e.db.QueryRowContext(ctx, "SELECT 1").Scan(&result)
+	if err != nil {
+		return fmt.Errorf("database connection failed: %w", err)
+	}
+
+	e.log.Debug("Health check completed", "duration", time.Since(start))
 	return nil
 }
 

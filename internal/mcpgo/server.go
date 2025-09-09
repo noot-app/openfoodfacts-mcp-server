@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -46,6 +48,11 @@ type Server struct {
 	queryEngine query.QueryEngine
 	auth        *auth.BearerTokenAuth
 	log         *slog.Logger
+
+	// Health check caching to prevent DOS attacks
+	healthMu        sync.RWMutex
+	lastHealthCheck time.Time
+	lastHealthError error
 }
 
 // SearchProductsResponse represents the response from search_products_by_brand_and_name
@@ -83,6 +90,42 @@ func NewServer(queryEngine query.QueryEngine, authenticator *auth.BearerTokenAut
 	s.addTools()
 
 	return s
+}
+
+// checkHealthWithCache checks health with 10-second caching to prevent DOS attacks
+func (s *Server) checkHealthWithCache(ctx context.Context) error {
+	const cacheDuration = 10 * time.Second
+
+	s.healthMu.RLock()
+	if time.Since(s.lastHealthCheck) < cacheDuration {
+		err := s.lastHealthError
+		s.healthMu.RUnlock()
+		s.log.Debug("Health check: using cached result",
+			"cached_error", err != nil,
+			"cache_age", time.Since(s.lastHealthCheck))
+		return err
+	}
+	s.healthMu.RUnlock()
+
+	// Need to perform actual health check
+	s.healthMu.Lock()
+	defer s.healthMu.Unlock()
+
+	// Double-check in case another goroutine updated while waiting for write lock
+	if time.Since(s.lastHealthCheck) < cacheDuration {
+		s.log.Debug("Health check: using cached result after lock",
+			"cached_error", s.lastHealthError != nil,
+			"cache_age", time.Since(s.lastHealthCheck))
+		return s.lastHealthError
+	}
+
+	// Perform actual health check
+	s.log.Debug("Health check: performing database check")
+	err := s.queryEngine.HealthCheck(ctx)
+	s.lastHealthCheck = time.Now()
+	s.lastHealthError = err
+
+	return err
 }
 
 func (s *Server) addTools() {
@@ -250,9 +293,9 @@ func (s *Server) ServeHTTP(addr string) error {
 			return
 		}
 
-		// Test database connection
+		// Use cached health check to prevent DOS attacks
 		ctx := r.Context()
-		if err := s.queryEngine.TestConnection(ctx); err != nil {
+		if err := s.checkHealthWithCache(ctx); err != nil {
 			s.log.Error("Health check failed", "error", err)
 			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Header().Set("Content-Type", "application/json")
