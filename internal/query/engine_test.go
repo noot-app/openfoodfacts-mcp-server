@@ -380,6 +380,23 @@ func TestMockEngine_TestConnection(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestMockEngine_HealthCheck(t *testing.T) {
+	logger := config.NewTestLogger(os.Stdout, "DEBUG")
+	engine := NewMockEngine(logger)
+	defer engine.Close()
+
+	ctx := context.Background()
+
+	// Test successful health check
+	err := engine.HealthCheck(ctx)
+	assert.NoError(t, err)
+
+	// Test health check with error
+	engine.SetError(assert.AnError)
+	err = engine.HealthCheck(ctx)
+	assert.Error(t, err)
+}
+
 func TestProduct_JSONSerialization(t *testing.T) {
 	product := types.Product{
 		Code:        "12345",

@@ -14,6 +14,7 @@ type QueryEngine interface {
 	SearchProductsByBrandAndName(ctx context.Context, name, brand string, limit int) ([]types.Product, error)
 	SearchByBarcode(ctx context.Context, barcode string) (*types.Product, error)
 	TestConnection(ctx context.Context) error
+	HealthCheck(ctx context.Context) error // Lightweight health check for production monitoring
 	Close() error
 }
 

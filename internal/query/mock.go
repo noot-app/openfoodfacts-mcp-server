@@ -89,8 +89,13 @@ func (m *MockEngine) SearchByBarcode(ctx context.Context, barcode string) (*type
 	return nil, nil
 }
 
-// TestConnection tests the connection (always succeeds for mock)
+// TestConnection tests the connection (respects SetError)
 func (m *MockEngine) TestConnection(ctx context.Context) error {
+	return m.err
+}
+
+// HealthCheck performs a lightweight health check (respects SetError)
+func (m *MockEngine) HealthCheck(ctx context.Context) error {
 	return m.err
 }
 
