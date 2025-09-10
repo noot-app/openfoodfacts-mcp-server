@@ -23,7 +23,7 @@
             }
         },
         "restartPolicyType": "ON_FAILURE",
-        "healthcheckTimeout": 300,
+        "healthcheckTimeout": 800,
         "restartPolicyMaxRetries": 5
     }
 }
