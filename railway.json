@@ -15,7 +15,7 @@
         "overlapSeconds": 30,
         "drainingSeconds": 30,
         "healthcheckPath": "/health",
-        "sleepApplication": true,
+        "sleepApplication": false,
         "useLegacyStacker": false,
         "multiRegionConfig": {
             "us-west2": {
