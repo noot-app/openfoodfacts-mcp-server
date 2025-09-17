@@ -50,3 +50,69 @@ type Ingredient struct {
 	Vegan               *string                  `json:"vegan"`
 	Vegetarian          *string                  `json:"vegetarian"`
 }
+
+// SimplifiedIngredient represents a lean ingredient structure for reduced token consumption
+type SimplifiedIngredient struct {
+	ID              string   `json:"id"`
+	Text            string   `json:"text"`
+	PercentEstimate *float64 `json:"percent_estimate"`
+}
+
+// SimplifiedProduct represents a lean product structure for reduced token consumption
+type SimplifiedProduct struct {
+	Code        string                 `json:"code"`
+	ProductName string                 `json:"product_name"`
+	Brands      string                 `json:"brands"`
+	Link        string                 `json:"link"`
+	Nutriments  map[string]interface{} `json:"nutriments"`
+	Ingredients []SimplifiedIngredient `json:"ingredients"`
+}
+
+// ToSimplified converts a full Product to a SimplifiedProduct
+func (p *Product) ToSimplified() SimplifiedProduct {
+	simplified := SimplifiedProduct{
+		Code:        p.Code,
+		ProductName: p.ProductName,
+		Brands:      p.Brands,
+		Link:        p.Link,
+		Nutriments:  p.Nutriments,
+		Ingredients: []SimplifiedIngredient{},
+	}
+
+	// Convert ingredients if they exist
+	if p.Ingredients != nil {
+		if ingredientSlice, ok := p.Ingredients.([]interface{}); ok {
+			for _, ingredientData := range ingredientSlice {
+				if ingredientMap, ok := ingredientData.(map[string]interface{}); ok {
+					ingredient := SimplifiedIngredient{}
+
+					// Extract required fields
+					if id, exists := ingredientMap["id"]; exists {
+						if idStr, ok := id.(string); ok {
+							ingredient.ID = idStr
+						}
+					}
+
+					if text, exists := ingredientMap["text"]; exists {
+						if textStr, ok := text.(string); ok {
+							ingredient.Text = textStr
+						}
+					}
+
+					if percentEst, exists := ingredientMap["percent_estimate"]; exists {
+						if percentFloat, ok := percentEst.(float64); ok {
+							ingredient.PercentEstimate = &percentFloat
+						}
+					}
+
+					// Only add ingredient if it has required fields
+					if ingredient.ID != "" && ingredient.Text != "" {
+						simplified.Ingredients = append(simplified.Ingredients, ingredient)
+					}
+				}
+			}
+		}
+	}
+
+	return simplified
+}
