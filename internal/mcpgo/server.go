@@ -68,6 +68,13 @@ type SearchBarcodeResponse struct {
 	Product *types.Product `json:"product,omitempty"`
 }
 
+// SearchProductsSimplifiedResponse represents the simplified response from search_products_by_brand_and_name_simplified
+type SearchProductsSimplifiedResponse struct {
+	Found    bool                      `json:"found"`
+	Count    int                       `json:"count"`
+	Products []types.SimplifiedProduct `json:"products"`
+}
+
 // NewServer creates a new MCP server with the mark3labs SDK
 func NewServer(queryEngine query.QueryEngine, authenticator *auth.BearerTokenAuth, logger *slog.Logger) *Server {
 	// Create MCP server
@@ -166,6 +173,31 @@ func (s *Server) addTools() {
 	)
 
 	s.mcpServer.AddTool(barcodeTool, s.handleSearchByBarcode)
+
+	// Search products by brand and name tool (simplified version)
+	searchSimplifiedTool := mcp.NewTool("search_products_by_brand_and_name_simplified",
+		mcp.WithDescription("Search for branded products by their brand and product name returning simplified nutrients. This tool can only be used if brand and product name are both provided and non-empty."),
+		mcp.WithString("name",
+			mcp.Required(),
+			mcp.MinLength(1), // must be at least 1 char
+			mcp.Description("Product name to search for. Required and must be a non-empty string."),
+		),
+		mcp.WithString("brand",
+			mcp.Required(),
+			mcp.MinLength(1), // must be at least 1 char
+			mcp.Description("Brand name to search for. Required and must be a non-empty string."),
+		),
+		mcp.WithNumber("limit",
+			mcp.Description("Maximum number of results (default: 1, max: 10)"),
+			mcp.DefaultNumber(1),
+			mcp.Min(1),
+			mcp.Max(10),
+		),
+		mcp.WithOutputSchema[SearchProductsSimplifiedResponse](),
+		mcp.WithIdempotentHintAnnotation(true),
+	)
+
+	s.mcpServer.AddTool(searchSimplifiedTool, s.handleSearchProductsSimplified)
 }
 
 func (s *Server) handleSearchProducts(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -231,6 +263,83 @@ func (s *Server) handleSearchProducts(ctx context.Context, request mcp.CallToolR
 	}
 
 	s.log.Debug("handleSearchProducts: Returning structured result",
+		"found", response.Found,
+		"count", response.Count,
+		"response_size", len(responseJSON))
+
+	// Return both structured content and text fallback for maximum compatibility
+	return mcp.NewToolResultStructured(response, string(responseJSON)), nil
+}
+
+func (s *Server) handleSearchProductsSimplified(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.log.Debug("handleSearchProductsSimplified: Starting tool call",
+		"arguments", request.GetArguments())
+
+	// Extract arguments
+	name, err := request.RequireString("name")
+	if err != nil {
+		s.log.Warn("handleSearchProductsSimplified: Missing 'name' parameter", "error", err)
+		return mcp.NewToolResultError(fmt.Sprintf("Missing required parameter 'name': %v", err)), nil
+	}
+
+	brand, err := request.RequireString("brand") // Required parameter
+	if err != nil {
+		s.log.Warn("handleSearchProductsSimplified: Missing 'brand' parameter", "error", err)
+		return mcp.NewToolResultError(fmt.Sprintf("Missing required parameter 'brand': %v", err)), nil
+	}
+
+	// Validate minimum lengths
+	if len(name) < 1 {
+		s.log.Warn("handleSearchProductsSimplified: Invalid 'name' parameter", "length", len(name))
+		return mcp.NewToolResultError("Parameter 'name' must be at least 1 character long"), nil
+	}
+	if len(brand) < 1 {
+		s.log.Warn("handleSearchProductsSimplified: Invalid 'brand' parameter", "length", len(brand))
+		return mcp.NewToolResultError("Parameter 'brand' must be at least 1 character long"), nil
+	}
+
+	limitFloat := request.GetFloat("limit", 3.0)
+	limit := int(limitFloat)
+	if limit <= 0 {
+		limit = 3
+	}
+	if limit > 10 {
+		limit = 10
+	}
+
+	s.log.Debug("MCP SearchProductsByBrandAndNameSimplified called",
+		"name", name,
+		"brand", brand,
+		"limit", limit)
+
+	// Execute search using existing query engine
+	products, err := s.queryEngine.SearchProductsByBrandAndName(ctx, name, brand, limit)
+	if err != nil {
+		s.log.Error("Product search failed", "error", err)
+		return mcp.NewToolResultError(fmt.Sprintf("Search failed: %v", err)), nil
+	}
+
+	// Convert to simplified products
+	simplifiedProducts := make([]types.SimplifiedProduct, 0, len(products))
+	for _, product := range products {
+		simplifiedProducts = append(simplifiedProducts, product.ToSimplified())
+	}
+
+	// Prepare structured response
+	response := SearchProductsSimplifiedResponse{
+		Found:    len(simplifiedProducts) > 0,
+		Count:    len(simplifiedProducts),
+		Products: simplifiedProducts,
+	}
+
+	// Create fallback text for backwards compatibility
+	responseJSON, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		s.log.Error("handleSearchProductsSimplified: Failed to marshal response", "error", err)
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal response: %v", err)), nil
+	}
+
+	s.log.Debug("handleSearchProductsSimplified: Returning structured result",
 		"found", response.Found,
 		"count", response.Count,
 		"response_size", len(responseJSON))

@@ -41,6 +41,7 @@ This MCP server downloads and caches the Open Food Facts Parquet dataset locally
 
 - **search_products_by_brand_and_name**: Search products by name and brand
 - **search_by_barcode**: Find product by barcode (UPC/EAN)
+- **search_products_by_brand_and_name_simplified**: A lighter version of the search that returns fewer fields to save on token usage
 
 The server automatically manages dataset updates, uses file locking for concurrent safety, and provides structured JSON logging.
 
@@ -154,3 +155,11 @@ This will start an HTTP server on the configured port (default 8080) with:
 |----------|----------------|-------------|
 | `/health` | None | Health check endpoint |
 | `/mcp` | Bearer token | MCP JSON-RPC 2.0 endpoint |
+
+### STDIO Mode (Local Development)
+
+A cool tip for developing locally, you can actually do this and it will return a result from the MCP server:
+
+```bash
+echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "search_products_by_brand_and_name_simplified", "arguments": {"name": "cream soda", "brand": "olipop", "limit": 1}}}' | go run cmd/openfoodfacts-mcp-server/main.go --stdio
+```
