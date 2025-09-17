@@ -176,7 +176,7 @@ func (s *Server) addTools() {
 
 	// Search products by brand and name tool (simplified version)
 	searchSimplifiedTool := mcp.NewTool("search_products_by_brand_and_name_simplified",
-		mcp.WithDescription("Search for branded products by their brand and product name. Returns simplified product data with reduced token consumption - only essential fields like ingredients (id, text, percent_estimate). This tool can only be used if brand and product name are both provided and non-empty."),
+		mcp.WithDescription("Search for branded products by their brand and product name returning simplified nutrients. This tool can only be used if brand and product name are both provided and non-empty."),
 		mcp.WithString("name",
 			mcp.Required(),
 			mcp.MinLength(1), // must be at least 1 char
