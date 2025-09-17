@@ -4,30 +4,6 @@ set -euo pipefail
 
 source script/env "$@"
 
-function usage() {
-    echo "Usage: $0 [--clean]"
-    echo ""
-    echo "Without options, starts the server with the existing database."
-    echo "This script will automatically pull down a fresh parquet file if one does not already exist at ./data"
-}
+echo -e "${BLUE}🚀 Starting server...${OFF}"
 
-function start_server() {
-    echo -e "${BLUE}🚀 Starting server...${OFF}"
-    
-    go run ./cmd/openfoodfacts-mcp-server/main.go
-}
-
-# Parse command line arguments
-case "${1:-}" in
-    --help|-h|help)
-        usage
-        ;;
-    "")
-        start_server
-        ;;
-    *)
-        echo -e "${RED}❌ Unknown option: $1${OFF}"
-        echo ""
-        usage
-        ;;
-esac
+go run ./cmd/openfoodfacts-mcp-server/main.go $@
