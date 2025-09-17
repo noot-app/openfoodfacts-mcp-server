@@ -69,11 +69,13 @@ type SimplifiedProduct struct {
 
 // ToSimplified converts a full Product to a SimplifiedProduct
 func (p *Product) ToSimplified() SimplifiedProduct {
+	processedNutriments := p.processNutrimentsForSimplified()
+
 	simplified := SimplifiedProduct{
 		ProductName: p.ProductName,
 		Brands:      p.Brands,
 		Link:        p.Link,
-		Nutriments:  p.Nutriments,
+		Nutriments:  processedNutriments,
 		Ingredients: []SimplifiedIngredient{},
 	}
 
@@ -113,4 +115,56 @@ func (p *Product) ToSimplified() SimplifiedProduct {
 	}
 
 	return simplified
+}
+
+// processNutrimentsForSimplified processes nutriments to redact energy (kJ) and normalize to energy-kcal
+func (p *Product) processNutrimentsForSimplified() map[string]interface{} {
+	if p.Nutriments == nil {
+		return nil
+	}
+
+	// Create a copy to avoid modifying the original
+	processed := make(map[string]interface{})
+	for key, value := range p.Nutriments {
+		processed[key] = value
+	}
+
+	// Handle energy field redaction
+	_, hasKcal := processed["energy-kcal"]
+	energyKj, hasKj := processed["energy"]
+
+	if hasKcal {
+		// Keep energy-kcal, remove energy (kJ)
+		delete(processed, "energy")
+	} else if hasKj {
+		// Convert energy (kJ) to energy-kcal and remove original energy
+		if kjData, ok := energyKj.(map[string]interface{}); ok {
+			// Create converted kcal data
+			kcalData := make(map[string]interface{})
+			for k, v := range kjData {
+				kcalData[k] = v
+			}
+
+			// Convert kJ values to kcal (divide by 4.184)
+			if val100g, ok := kjData["100g"].(float64); ok {
+				kcalData["100g"] = val100g / 4.184
+			}
+			if valServing, ok := kjData["serving"].(float64); ok {
+				kcalData["serving"] = valServing / 4.184
+			}
+			if valValue, ok := kjData["value"].(float64); ok {
+				kcalData["value"] = valValue / 4.184
+			}
+
+			// Update name and unit
+			kcalData["name"] = "energy-kcal"
+			kcalData["unit"] = "kcal"
+
+			processed["energy-kcal"] = kcalData
+		}
+		// Remove original energy (kJ) field
+		delete(processed, "energy")
+	}
+
+	return processed
 }
