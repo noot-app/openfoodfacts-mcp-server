@@ -41,6 +41,7 @@ This MCP server downloads and caches the Open Food Facts Parquet dataset locally
 
 - **search_products_by_brand_and_name**: Search products by name and brand
 - **search_by_barcode**: Find product by barcode (UPC/EAN)
+- **search_products_by_brand_and_name_simplified**: A lighter version of the search that returns fewer fields to save on token usage
 
 The server automatically manages dataset updates, uses file locking for concurrent safety, and provides structured JSON logging.
 
