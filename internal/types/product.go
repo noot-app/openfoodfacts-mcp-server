@@ -60,7 +60,6 @@ type SimplifiedIngredient struct {
 
 // SimplifiedProduct represents a lean product structure for reduced token consumption
 type SimplifiedProduct struct {
-	Code        string                 `json:"code"`
 	ProductName string                 `json:"product_name"`
 	Brands      string                 `json:"brands"`
 	Link        string                 `json:"link"`
@@ -71,7 +70,6 @@ type SimplifiedProduct struct {
 // ToSimplified converts a full Product to a SimplifiedProduct
 func (p *Product) ToSimplified() SimplifiedProduct {
 	simplified := SimplifiedProduct{
-		Code:        p.Code,
 		ProductName: p.ProductName,
 		Brands:      p.Brands,
 		Link:        p.Link,
