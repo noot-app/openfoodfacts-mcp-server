@@ -153,3 +153,288 @@ func TestIngredient_JSONSerialization(t *testing.T) {
 	assert.Equal(t, *ingredient.Vegetarian, *unmarshaled.Vegetarian)
 	assert.Equal(t, len(ingredient.Ingredients), len(unmarshaled.Ingredients))
 }
+
+func TestProduct_ToSimplified(t *testing.T) {
+	tests := []struct {
+		name     string
+		product  Product
+		expected SimplifiedProduct
+	}{
+		{
+			name: "basic product conversion",
+			product: Product{
+				Code:        "12345",
+				ProductName: "Test Product",
+				Brands:      "Test Brand",
+				Link:        "https://example.com/product/12345",
+				Nutriments: map[string]interface{}{
+					"fat": map[string]interface{}{
+						"100g":    5.5,
+						"serving": 2.0,
+						"unit":    "g",
+					},
+				},
+				Ingredients: []interface{}{
+					map[string]interface{}{
+						"id":               "sugar",
+						"text":             "Sugar",
+						"percent_estimate": 25.5,
+					},
+					map[string]interface{}{
+						"id":               "salt",
+						"text":             "Salt",
+						"percent_estimate": 2.0,
+					},
+				},
+			},
+			expected: SimplifiedProduct{
+				ProductName: "Test Product",
+				Brands:      "Test Brand",
+				Link:        "https://example.com/product/12345",
+				Nutriments: map[string]interface{}{
+					"fat": map[string]interface{}{
+						"100g":    5.5,
+						"serving": 2.0,
+						"unit":    "g",
+					},
+				},
+				Ingredients: []SimplifiedIngredient{
+					{
+						ID:              "sugar",
+						Text:            "Sugar",
+						PercentEstimate: &[]float64{25.5}[0],
+					},
+					{
+						ID:              "salt",
+						Text:            "Salt",
+						PercentEstimate: &[]float64{2.0}[0],
+					},
+				},
+			},
+		},
+		{
+			name: "product with incomplete ingredients",
+			product: Product{
+				ProductName: "Test Product",
+				Brands:      "Test Brand",
+				Link:        "https://example.com",
+				Ingredients: []interface{}{
+					map[string]interface{}{
+						"id":   "sugar",
+						"text": "Sugar",
+					},
+					map[string]interface{}{
+						"id": "salt", // missing text - should be excluded
+					},
+					map[string]interface{}{
+						"text": "Unknown", // missing id - should be excluded
+					},
+				},
+			},
+			expected: SimplifiedProduct{
+				ProductName: "Test Product",
+				Brands:      "Test Brand",
+				Link:        "https://example.com",
+				Ingredients: []SimplifiedIngredient{
+					{
+						ID:   "sugar",
+						Text: "Sugar",
+					},
+				},
+			},
+		},
+		{
+			name: "product with nil ingredients",
+			product: Product{
+				ProductName: "Test Product",
+				Brands:      "Test Brand",
+				Link:        "https://example.com",
+				Ingredients: nil,
+			},
+			expected: SimplifiedProduct{
+				ProductName: "Test Product",
+				Brands:      "Test Brand",
+				Link:        "https://example.com",
+				Ingredients: []SimplifiedIngredient{},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.product.ToSimplified()
+			assert.Equal(t, tt.expected.ProductName, result.ProductName)
+			assert.Equal(t, tt.expected.Brands, result.Brands)
+			assert.Equal(t, tt.expected.Link, result.Link)
+			assert.Equal(t, tt.expected.Nutriments, result.Nutriments)
+			assert.Equal(t, len(tt.expected.Ingredients), len(result.Ingredients))
+
+			for i, expectedIngredient := range tt.expected.Ingredients {
+				assert.Equal(t, expectedIngredient.ID, result.Ingredients[i].ID)
+				assert.Equal(t, expectedIngredient.Text, result.Ingredients[i].Text)
+				if expectedIngredient.PercentEstimate == nil {
+					assert.Nil(t, result.Ingredients[i].PercentEstimate)
+				} else {
+					require.NotNil(t, result.Ingredients[i].PercentEstimate)
+					assert.Equal(t, *expectedIngredient.PercentEstimate, *result.Ingredients[i].PercentEstimate)
+				}
+			}
+		})
+	}
+}
+
+func TestProduct_processNutrimentsForSimplified_EnergyRedaction(t *testing.T) {
+	tests := []struct {
+		name               string
+		inputNutriments    map[string]interface{}
+		expectedNutriments map[string]interface{}
+		description        string
+	}{
+		{
+			name: "keep energy-kcal and remove energy (kJ)",
+			inputNutriments: map[string]interface{}{
+				"energy": map[string]interface{}{
+					"100g":    2255.0,
+					"serving": 564.0,
+					"unit":    "kJ",
+					"name":    "energy",
+				},
+				"energy-kcal": map[string]interface{}{
+					"100g":    539.0,
+					"serving": 135.0,
+					"unit":    "kcal",
+					"name":    "energy-kcal",
+				},
+				"fat": map[string]interface{}{
+					"100g": 5.5,
+					"unit": "g",
+				},
+			},
+			expectedNutriments: map[string]interface{}{
+				"energy-kcal": map[string]interface{}{
+					"100g":    539.0,
+					"serving": 135.0,
+					"unit":    "kcal",
+					"name":    "energy-kcal",
+				},
+				"fat": map[string]interface{}{
+					"100g": 5.5,
+					"unit": "g",
+				},
+			},
+			description: "When both energy and energy-kcal exist, keep only energy-kcal",
+		},
+		{
+			name: "convert energy (kJ) to energy-kcal when energy-kcal missing",
+			inputNutriments: map[string]interface{}{
+				"energy": map[string]interface{}{
+					"100g":    2255.0,
+					"serving": 564.0,
+					"value":   2255.0,
+					"unit":    "kJ",
+					"name":    "energy",
+				},
+				"protein": map[string]interface{}{
+					"100g": 10.0,
+					"unit": "g",
+				},
+			},
+			expectedNutriments: map[string]interface{}{
+				"energy-kcal": map[string]interface{}{
+					"100g":    2255.0 / 4.184, // Direct calculation to match implementation
+					"serving": 564.0 / 4.184,  // Direct calculation to match implementation
+					"value":   2255.0 / 4.184, // Direct calculation to match implementation
+					"unit":    "kcal",
+					"name":    "energy-kcal",
+				},
+				"protein": map[string]interface{}{
+					"100g": 10.0,
+					"unit": "g",
+				},
+			},
+			description: "When only energy (kJ) exists, convert to energy-kcal",
+		},
+		{
+			name: "preserve nutriments without energy fields",
+			inputNutriments: map[string]interface{}{
+				"protein": map[string]interface{}{
+					"100g": 10.0,
+					"unit": "g",
+				},
+				"fat": map[string]interface{}{
+					"100g": 5.5,
+					"unit": "g",
+				},
+			},
+			expectedNutriments: map[string]interface{}{
+				"protein": map[string]interface{}{
+					"100g": 10.0,
+					"unit": "g",
+				},
+				"fat": map[string]interface{}{
+					"100g": 5.5,
+					"unit": "g",
+				},
+			},
+			description: "When no energy fields exist, preserve all other nutriments",
+		},
+		{
+			name:               "handle nil nutriments",
+			inputNutriments:    nil,
+			expectedNutriments: nil,
+			description:        "When nutriments is nil, return nil",
+		},
+		{
+			name:               "handle empty nutriments",
+			inputNutriments:    map[string]interface{}{},
+			expectedNutriments: map[string]interface{}{},
+			description:        "When nutriments is empty, return empty map",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			product := Product{
+				Nutriments: tt.inputNutriments,
+			}
+
+			result := product.processNutrimentsForSimplified()
+
+			if tt.expectedNutriments == nil {
+				assert.Nil(t, result, tt.description)
+			} else {
+				require.NotNil(t, result, tt.description)
+				assert.Equal(t, len(tt.expectedNutriments), len(result), tt.description)
+
+				for key, expectedValue := range tt.expectedNutriments {
+					actualValue, exists := result[key]
+					assert.True(t, exists, "Expected key %s to exist in result", key)
+
+					if expectedMap, ok := expectedValue.(map[string]interface{}); ok {
+						actualMap, ok := actualValue.(map[string]interface{})
+						require.True(t, ok, "Expected %s to be a map", key)
+
+						for subKey, expectedSubValue := range expectedMap {
+							actualSubValue, exists := actualMap[subKey]
+							assert.True(t, exists, "Expected subkey %s.%s to exist", key, subKey)
+
+							if expectedFloat, ok := expectedSubValue.(float64); ok {
+								actualFloat, ok := actualSubValue.(float64)
+								require.True(t, ok, "Expected %s.%s to be float64", key, subKey)
+								assert.InDelta(t, expectedFloat, actualFloat, 0.1, "Values for %s.%s don't match", key, subKey)
+							} else {
+								assert.Equal(t, expectedSubValue, actualSubValue, "Values for %s.%s don't match", key, subKey)
+							}
+						}
+					} else {
+						assert.Equal(t, expectedValue, actualValue, "Values for %s don't match", key)
+					}
+				}
+
+				// Ensure energy field is not present when it shouldn't be
+				_, hasEnergy := result["energy"]
+				assert.False(t, hasEnergy, "energy field should be removed")
+			}
+		})
+	}
+}
