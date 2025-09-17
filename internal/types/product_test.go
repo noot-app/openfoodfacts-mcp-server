@@ -188,6 +188,7 @@ func TestProduct_ToSimplified(t *testing.T) {
 				},
 			},
 			expected: SimplifiedProduct{
+				Code:        "12345",
 				ProductName: "Test Product",
 				Brands:      "Test Brand",
 				Link:        "https://example.com/product/12345",
@@ -232,6 +233,7 @@ func TestProduct_ToSimplified(t *testing.T) {
 				},
 			},
 			expected: SimplifiedProduct{
+				Code:        "",
 				ProductName: "Test Product",
 				Brands:      "Test Brand",
 				Link:        "https://example.com",
@@ -252,6 +254,7 @@ func TestProduct_ToSimplified(t *testing.T) {
 				Ingredients: nil,
 			},
 			expected: SimplifiedProduct{
+				Code:        "",
 				ProductName: "Test Product",
 				Brands:      "Test Brand",
 				Link:        "https://example.com",
@@ -263,6 +266,7 @@ func TestProduct_ToSimplified(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.product.ToSimplified()
+			assert.Equal(t, tt.expected.Code, result.Code)
 			assert.Equal(t, tt.expected.ProductName, result.ProductName)
 			assert.Equal(t, tt.expected.Brands, result.Brands)
 			assert.Equal(t, tt.expected.Link, result.Link)
