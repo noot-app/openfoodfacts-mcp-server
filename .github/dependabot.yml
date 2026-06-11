@@ -9,7 +9,11 @@ updates:
       go-dependencies:
         patterns:
           - "*"
+    cooldown:
+      default-days: 45
 
+    cooldown:
+      default-days: 45
   - package-ecosystem: github-actions
     directory: "/"
     groups:
@@ -18,3 +22,11 @@ updates:
           - "*"
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 45
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 45
