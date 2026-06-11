@@ -37,7 +37,7 @@ RUN VERSION_TAG="$(git describe --tags 2>/dev/null || echo 'dev')" && \
         ./cmd/${PROJECT_NAME}
 
 # Runtime stage - use debian slim instead of scratch for DuckDB dependencies
-FROM debian:bookworm-slim@sha256:b1a741487078b369e78119849663d7f1a5341ef2768798f7b7406c4240f86aef
+FROM debian:bookworm-slim@sha256:96e378d7e6531ac9a15ad505478fcc2e69f371b10f5cdf87857c4b8188404716
 
 # Create a non-root user with predictable UID/GID
 RUN groupadd -r -g 1001 nonroot && useradd -r -u 1001 -g nonroot -s /bin/false nonroot
